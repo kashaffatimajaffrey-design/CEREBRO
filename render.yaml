@@ -40,6 +40,12 @@ services:
         generateValue: true
       - key: AUTO_APPLY_SCHEMA
         value: "true"                 # applies schema_portable.sql on first boot
+      - key: SEED_DEMO_USER
+        value: "true"                 # creates a demo login on first boot (see DEMO_* below)
+      - key: DEMO_EMAIL
+        value: "demo@cerebro.local"
+      - key: DEMO_PASSWORD
+        value: "cerebro-demo-2026"    # CHANGE THIS in the Render dashboard before sharing
       - key: SESSION_COOKIE_SAMESITE
         value: none                   # frontend is a different site
       - key: CORS_ORIGINS

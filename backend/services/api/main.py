@@ -49,6 +49,36 @@ logging.basicConfig(
 log = logging.getLogger("cerebro.api")
 
 
+async def _seed_demo_user() -> None:
+    """
+    Create a demo tenant + owner login the first time the DB is empty, so a fresh
+    deploy is usable before a registration flow exists. Idempotent: if any user
+    already exists, this does nothing and never touches real accounts.
+    """
+    existing = await db.fetch_unscoped("SELECT 1 FROM cerebro.users LIMIT 1")
+    if existing:
+        return
+    from services.api.core.security import hash_password
+
+    tenant = await db.fetch_unscoped(
+        """
+        INSERT INTO cerebro.tenants (name, slug) VALUES ('Demo', 'demo')
+        ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
+        RETURNING id
+        """
+    )
+    tenant_id = tenant[0]["id"]
+    await db.fetch_unscoped(
+        """
+        INSERT INTO cerebro.users (tenant_id, email, display_name, role, password_hash)
+        VALUES ($1, $2, 'Demo Admin', 'owner', $3)
+        ON CONFLICT (tenant_id, email) DO NOTHING
+        """,
+        tenant_id, settings.demo_email, hash_password(settings.demo_password),
+    )
+    log.info("seeded demo user %s", settings.demo_email)
+
+
 def _load_models(app: FastAPI) -> None:
     """Load trained model artifacts named in the environment, if they exist."""
     import os
@@ -98,6 +128,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 await db.apply_schema()
             except Exception as exc:  # noqa: BLE001
                 log.warning("auto schema apply failed (%s); apply db/schema_portable.sql manually", exc)
+        if settings.seed_demo_user:
+            try:
+                await _seed_demo_user()
+            except Exception as exc:  # noqa: BLE001
+                log.warning("demo user seed skipped (%s)", exc)
     except Exception as exc:  # noqa: BLE001
         log.warning("database unavailable at startup (%s); metrics/stream disabled", exc)
 

@@ -77,6 +77,15 @@ class Settings:
             "1", "true", "yes", "on"
         }
 
+        # Seed a demo tenant + login on first boot IF the users table is empty.
+        # For getting a fresh deploy usable without a registration flow. Never
+        # overwrites existing users. Change the password before anything public.
+        self.seed_demo_user: bool = os.getenv("SEED_DEMO_USER", "false").lower() in {
+            "1", "true", "yes", "on"
+        }
+        self.demo_email: str = os.getenv("DEMO_EMAIL", "demo@cerebro.local")
+        self.demo_password: str = os.getenv("DEMO_PASSWORD", "cerebro-demo-2026")
+
         self._validate()
 
     @property
