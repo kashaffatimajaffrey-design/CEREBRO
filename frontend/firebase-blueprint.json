@@ -1,0 +1,70 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a security analyst profile.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique user ID matching Google/Firebase Auth UID."
+        },
+        "name": {
+          "type": "string",
+          "description": "Public name or handle of the analyst."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Crypto endpoint email of the analyst."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp indicating when profile was registered."
+        }
+      },
+      "required": ["id", "name", "email", "createdAt"]
+    },
+    "HistoryItem": {
+      "title": "HistoryItem",
+      "description": "A threat log or information scan session.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique forensic node ID."
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the transaction/scan."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["NEWS", "CYBER"],
+          "description": "The category of security inspection."
+        },
+        "summary": {
+          "type": "string",
+          "description": "A high-level summary of analysis findings."
+        },
+        "result": {
+          "type": "string",
+          "description": "Raw risk/credibility outcomes (e.g. Critical, Safe, Suspicious)."
+        }
+      },
+      "required": ["id", "date", "type", "summary", "result"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Personal details and credentials metadata of registered analysts."
+    },
+    "users/{userId}/history/{historyId}": {
+      "schema": "HistoryItem",
+      "description": "Unbounded subcollection for digital forensic audit records."
+    }
+  }
+}

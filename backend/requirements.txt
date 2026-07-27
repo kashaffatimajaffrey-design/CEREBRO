@@ -1,0 +1,46 @@
+# --- API ---------------------------------------------------------------
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+python-multipart==0.0.20
+httpx==0.28.1
+
+# --- Database ----------------------------------------------------------
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+pgvector==0.3.6
+redis==5.2.1
+
+# --- ML: classification, embedding, reranking --------------------------
+torch==2.5.1
+transformers==4.47.1
+sentence-transformers==3.3.1
+scikit-learn==1.6.0
+numpy==2.2.1
+scipy==1.15.0
+lightgbm==4.5.0
+
+# --- Forecasting (TFT) -------------------------------------------------
+pytorch-forecasting==1.2.0
+pytorch-lightning==2.5.0
+pandas==2.2.3
+
+# --- Ingestion ---------------------------------------------------------
+feedparser==6.0.11
+beautifulsoup4==4.12.3
+tldextract==5.1.3
+python-whois==0.9.5
+
+# --- Storage / observability -------------------------------------------
+boto3==1.35.90
+structlog==24.4.0
+prometheus-client==0.21.1
+opentelemetry-api==1.29.0
+opentelemetry-sdk==1.29.0
+
+# --- Security ----------------------------------------------------------
+argon2-cffi==23.1.0
+python-jose[cryptography]==3.3.0
+cryptography==44.0.0
+slowapi==0.1.9

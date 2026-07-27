@@ -1,0 +1,26 @@
+# Frontend deploy. The API lives on Railway; this only ships the static build.
+[build]
+  command = "npm run build:client"
+  base    = "frontend"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# SPA fallback — every route serves index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security headers. A security product that ships without a CSP is not a
+# good look, and the CSP is what makes the "no token in localStorage" fix
+# meaningful — it closes the XSS path that would have read it.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.onrender.com wss://*.onrender.com https://*.railway.app wss://*.railway.app https://*.googleapis.com; frame-ancestors 'none'"

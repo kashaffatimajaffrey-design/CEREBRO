@@ -1,0 +1,27 @@
+# Slim image for free-tier hosts (Render free web service, ~512 MB RAM).
+# Uses requirements-serve.txt — no torch/transformers — so it builds fast and
+# fits the memory limit. Detection (forensics), the trained sklearn classifier,
+# the DB/metrics/auth layer, and RAG-with-fallback all work; RoBERTa-grade NLI
+# and TFT are unavailable here (documented, and the code says so honestly).
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential curl libgomp1 && rm -rf /var/lib/apt/lists/*
+
+COPY requirements-serve.txt .
+RUN pip install --no-cache-dir -r requirements-serve.txt
+
+COPY services/ ./services/
+COPY scripts/ ./scripts/
+COPY db/ ./db/
+
+RUN useradd --create-home --shell /bin/false cerebro && chown -R cerebro:cerebro /app
+USER cerebro
+
+# Render (and most PaaS) inject $PORT. Bind to it; default 8000 for local runs.
+EXPOSE 8000
+CMD ["sh", "-c", "uvicorn services.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

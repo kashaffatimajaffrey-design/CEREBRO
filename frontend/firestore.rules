@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net (default deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitive Security Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Strictly validated User record schema blueprint
+    function isValidUser(user) {
+      return user.id is string
+        && user.id.size() <= 128
+        && user.name is string
+        && user.name.size() > 0
+        && user.name.size() <= 200
+        && user.email is string
+        && user.email.size() > 0
+        && user.email.size() <= 200
+        && user.createdAt is timestamp;
+    }
+
+    // Strictly validated History audit item schema blueprint
+    function isValidHistoryItem(item) {
+      return item.id is string
+        && item.id.size() <= 128
+        && item.date is timestamp
+        && item.type is string
+        && (item.type == 'NEWS' || item.type == 'CYBER')
+        && item.summary is string
+        && item.summary.size() <= 5000
+        && item.result is string
+        && item.result.size() <= 1000;
+    }
+
+    // Security Analyst Profiles
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && isValidId(userId)
+        && isValidUser(request.resource.data)
+        && request.resource.data.id == userId
+        && request.resource.data.createdAt == request.time;
+      
+      allow update: if isOwner(userId)
+        && isValidUser(request.resource.data)
+        && request.resource.data.id == userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.email == resource.data.email;
+      
+      allow delete: if false; // Firewalls do not permit destroying logs
+
+      // Scans & Forensics subcollection (Write-once ledgers)
+      match /history/{historyId} {
+        allow list, get: if isOwner(userId);
+        
+        allow create: if isOwner(userId)
+          && isValidId(historyId)
+          && isValidHistoryItem(request.resource.data)
+          && request.resource.data.id == historyId
+          && request.resource.data.date == request.time;
+        
+        allow update: if false; // Immutable logs
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

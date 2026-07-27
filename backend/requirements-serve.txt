@@ -1,0 +1,35 @@
+# Slim runtime deps for free-tier hosting (Render free web service, ~512 MB RAM).
+#
+# Deliberately EXCLUDES the heavy ML stack — torch, transformers,
+# sentence-transformers, pytorch-forecasting, pandas. With these omitted:
+#   - email forensics (deterministic) works fully
+#   - the trained email classifier (sklearn/LightGBM) works — set EMAIL_CLASSIFIER_PATH
+#   - RAG retrieval works via the HashingEmbedder + lexical-stance fallback
+#     (materially weaker than RoBERTa; the code logs this loudly and never
+#      reports fallback quality as if it were the real model)
+#   - anomaly detection works when a saved sklearn model is loaded
+#   - TFT forecasting is unavailable (needs torch; the route says so honestly)
+#
+# For the full-quality stack (RoBERTa NLI, sentence-transformer embeddings), use
+# requirements.txt on a host with >=2.5 GB RAM (e.g. Hugging Face Spaces free
+# tier gives 16 GB), and swap the Dockerfile back.
+
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+python-multipart==0.0.20
+httpx==0.28.1
+
+asyncpg==0.30.0
+redis==5.2.1
+
+numpy==2.2.1
+scikit-learn==1.6.0
+joblib==1.4.2
+lightgbm==4.5.0
+
+cryptography==44.0.0
+structlog==24.4.0
+tldextract==5.1.3
+feedparser==6.0.11
+beautifulsoup4==4.12.3

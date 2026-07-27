@@ -1,0 +1,527 @@
+import React, { useState, useEffect } from 'react';
+import { analyzeNewsText } from '../services/apiService';
+import { NewsAnalysisResult } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { jsPDF } from 'jspdf';
+import { playCyberSFX } from '../utils/audio';
+import { 
+  ShieldAlert, 
+  Newspaper, 
+  FileText, 
+  Share2, 
+  Terminal, 
+  Cpu, 
+  AlertTriangle, 
+  CheckCircle2, 
+  Sparkles, 
+  Download,
+  AlertOctagon,
+  RefreshCw
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+
+export const NewsScanner: React.FC = () => {
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
+  const [result, setResult] = useState<NewsAnalysisResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showShareOptions, setShowShareOptions] = useState(false);
+  const { addToHistory } = useAuth();
+
+  // Pipeline stages. These now correspond to real backend steps:
+  // claim extraction -> hybrid retrieval -> rerank -> NLI stance -> aggregate.
+  const loadingLogs = [
+    'Initializing forensic credibility sweep...',
+    'Decrypting target payload structure...',
+    'Retrieving evidence from corpus...',
+    'Scoring entailment against retrieved evidence...',
+    'Resolving cross-reference authenticity weights...',
+    'Vault verification clearance established.'
+  ];
+
+  useEffect(() => {
+    let interval: any;
+    if (loading) {
+      setLoadingStep(0);
+      playCyberSFX('scan');
+      interval = setInterval(() => {
+        setLoadingStep((prev) => {
+          if (prev < loadingLogs.length - 1) {
+            playCyberSFX('hover');
+            return prev + 1;
+          }
+          return prev;
+        });
+      }, 900);
+    } else {
+      setLoadingStep(0);
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
+
+  const handleAnalyze = async () => {
+    if (!text.trim()) return;
+    setLoading(true);
+    setResult(null);
+    setError(null);
+    setShowShareOptions(false);
+    
+    try {
+      const data = await analyzeNewsText(text);
+      setResult(data);
+      playCyberSFX('success');
+      
+      // Save to user history
+      addToHistory({
+        id: Math.random().toString(36).substr(2, 9),
+        date: new Date().toISOString(),
+        type: 'NEWS',
+        summary: data.summary.substring(0, 80) + '...',
+        result: `${data.credibilityScore}% Credible`
+      });
+
+    } catch (e: any) {
+      console.error(e);
+      playCyberSFX('alarm');
+      setError(e.message || "Threat validation core error. Please check system configurations.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportPDF = () => {
+    if (!result) return;
+    playCyberSFX('click');
+    const doc = new jsPDF();
+    const margin = 20;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const maxLineWidth = pageWidth - margin * 2;
+
+    // Header
+    doc.setFontSize(22);
+    doc.setTextColor(41, 128, 185); // Blue
+    doc.text("CEREBRO", margin, 20);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(100);
+    doc.text("News Credibility Analysis Report", margin, 28);
+    doc.text(`Date: ${new Date().toLocaleString()}`, margin, 35);
+    
+    doc.setDrawColor(200);
+    doc.line(margin, 40, pageWidth - margin, 40);
+
+    // Results
+    let y = 55;
+
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text(`Verdict: ${result.verdict.toUpperCase()}`, margin, y);
+    
+    doc.setFontSize(12);
+    doc.text(`Credibility Score: ${result.credibilityScore}%`, margin + 100, y);
+    y += 15;
+
+    // Summary
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Summary", margin, y);
+    y += 7;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const summaryLines = doc.splitTextToSize(result.summary, maxLineWidth);
+    doc.text(summaryLines, margin, y);
+    y += (summaryLines.length * 5) + 10;
+
+    // Reasoning
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("AI Reasoning", margin, y);
+    y += 7;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const reasoningLines = doc.splitTextToSize(result.reasoning, maxLineWidth);
+    doc.text(reasoningLines, margin, y);
+    y += (reasoningLines.length * 5) + 10;
+
+    // Sources
+    if (result.sources.length > 0) {
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Sources / References", margin, y);
+      y += 7;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      result.sources.forEach(source => {
+        const sourceLine = doc.splitTextToSize(`- ${source}`, maxLineWidth);
+        doc.text(sourceLine, margin, y);
+        y += (sourceLine.length * 5) + 2;
+      });
+    }
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text("Generated by CEREBRO - Threat Intelligence System", margin, pageWidth * 1.3); // Approximate bottom
+
+    doc.save(`cerebro-news-analysis-${Date.now()}.pdf`);
+  };
+
+  const handleShare = (platform: 'twitter' | 'facebook') => {
+    if (!result) return;
+    playCyberSFX('click');
+    const shareText = `CEREBRO Analysis: ${result.verdict.toUpperCase()} (${result.credibilityScore}% Credibility).\n\nSummary: ${result.summary}`;
+    const url = window.location.href;
+
+    let shareUrl = '';
+    if (platform === 'twitter') {
+      shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
+    } else {
+      shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(shareText)}`;
+    }
+    
+    window.open(shareUrl, '_blank', 'width=600,height=400');
+    setShowShareOptions(false);
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'text-emerald-400 border-emerald-500/30 bg-emerald-500/5';
+    if (score >= 50) return 'text-yellow-400 border-yellow-500/30 bg-yellow-500/5';
+    return 'text-red-400 border-red-500/30 bg-red-500/5';
+  };
+
+  const getScoreVerdictStyle = (score: number) => {
+    if (score >= 80) {
+      return {
+        label: 'VERIFIED CREDIBLE',
+        desc: 'This item aligns securely with validated cross-references and carries a low probability of intentional disinformation.',
+        icon: <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+      };
+    }
+    if (score >= 50) {
+      return {
+        label: 'SUSPICIOUS / UNVERIFIED',
+        desc: 'This item exhibits minor factual irregularities or lacks corroboration in certified security databases. Approach with caution.',
+        icon: <AlertTriangle className="w-8 h-8 text-yellow-400 animate-pulse" />
+      };
+    }
+    return {
+      label: 'MALICIOUS PROPAGANDA / FAKE',
+      desc: 'Critical mismatch. This item is heavily flagged as host-level disinformation or factually compromised media.',
+      icon: <AlertOctagon className="w-8 h-8 text-red-500 animate-bounce" />
+    };
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* 1. Introductory Title */}
+      <div className="flex items-center gap-4 bg-slate-900/30 border border-slate-900 p-5 rounded-xl backdrop-blur-md relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-blue-500/20 to-transparent" />
+        <div className="p-3 rounded-lg bg-blue-950/40 border border-blue-500/25 text-blue-400">
+          <Newspaper className="w-6 h-6 animate-pulse" />
+        </div>
+        <div className="space-y-0.5">
+          <h2 className="text-lg font-bold text-white font-mono tracking-wider">[ NEWS INTEL RECON MODULE ]</h2>
+          <p className="text-xs text-slate-500 font-mono">Verify text files, articles, headlines, or telemetry statements against the retrieved evidence corpus.</p>
+        </div>
+      </div>
+
+      {/* 2. Interactive Input Panel */}
+      <div className="bg-slate-950/70 border border-slate-900 p-6 rounded-xl relative overflow-hidden shadow-2xl backdrop-blur-md">
+        <div className="absolute top-2 right-3 text-[8px] font-mono text-slate-700 tracking-widest uppercase">
+          SECURE_NLP_GATE_v2.0
+        </div>
+        
+        <textarea
+          className="w-full h-44 bg-slate-950 border border-slate-900 focus:border-slate-800 focus:ring-1 focus:ring-slate-800 rounded-lg p-4 text-slate-300 font-mono text-xs outline-none transition-all resize-none custom-scrollbar"
+          placeholder="Paste article text, coordinates, logs, or tactical message headlines here for deep NLP verification..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        
+        <div className="mt-4 flex items-center justify-between">
+          <div className="text-[10px] font-mono text-slate-600 uppercase">
+            [ Payload size: {text.length} characters ]
+          </div>
+
+          <button
+            onClick={handleAnalyze}
+            onMouseEnter={() => playCyberSFX('hover')}
+            disabled={loading || !text.trim()}
+            className={`px-5 py-2.5 rounded-lg text-xs font-bold font-mono tracking-widest uppercase flex items-center gap-2 border cursor-pointer transition-all ${
+              loading || !text.trim()
+                ? 'bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed'
+                : 'bg-blue-600/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20 hover:border-blue-400 hover:shadow-[0_0_15px_rgba(59,130,246,0.15)]'
+            }`}
+          >
+            {loading ? (
+              <>
+                <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-400" />
+                VERIFYING...
+              </>
+            ) : (
+              'VERIFY_PAYLOAD'
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* 2.5. Error Panel */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="p-5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 font-mono text-xs flex flex-col gap-3"
+          >
+            <div className="flex items-center gap-2 font-bold text-red-500">
+              <AlertTriangle className="w-5 h-5 animate-pulse" />
+              <span>[ RECON SYSTEM FAULT ]</span>
+            </div>
+            <p className="text-slate-300">
+              {error.includes("leaked") || error.includes("403") ? (
+                <>
+                  <span className="text-red-400 font-bold block mb-1">API KEY DISRUPTED (LEAK STATE REPORTED):</span>
+                  Your server-side Gemini API key has been reported as leaked. To restore the intelligence core, please navigate to the <span className="text-blue-400 underline font-bold">Settings &gt; Secrets</span> menu in AI Studio, update your API key signature, and retry validation.
+                </>
+              ) : (
+                error
+              )}
+            </p>
+            <button
+              onClick={handleAnalyze}
+              className="mt-1 self-start px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg font-bold text-[10px] tracking-widest uppercase transition-colors cursor-pointer"
+            >
+              RETRY_VERIFICATION
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 3. Immersive holographic hacker terminal loading overlay */}
+      <AnimatePresence>
+        {loading && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="bg-slate-950/90 border border-slate-900 p-6 rounded-xl shadow-2xl backdrop-blur-md relative overflow-hidden"
+          >
+            {/* Pulsing grid lines */}
+            <div className="absolute inset-0 bg-grid-lines opacity-10 pointer-events-none" />
+            <div className="absolute top-0 left-0 w-full h-[2px] bg-emerald-500/40 animate-scanline" />
+
+            <div className="flex flex-col md:flex-row items-center gap-6 relative z-10">
+              {/* Rotating holographic scanner radar */}
+              <div className="relative w-28 h-28 flex items-center justify-center flex-shrink-0">
+                <div className="absolute inset-0 border border-dashed border-emerald-500/20 rounded-full animate-spin [animation-duration:12s]" />
+                <div className="absolute inset-3 border border-dotted border-emerald-500/30 rounded-full animate-spin [animation-duration:5s] [animation-direction:reverse]" />
+                <div className="absolute inset-6 border border-emerald-500/40 rounded-full animate-pulse" />
+                <Terminal className="w-7 h-7 text-emerald-400 animate-pulse" />
+              </div>
+
+              {/* Dynamic scrolling diagnostic logs */}
+              <div className="flex-1 space-y-2 font-mono text-[10px] w-full">
+                <div className="flex justify-between items-center text-slate-500 border-b border-slate-900 pb-1.5 mb-2">
+                  <span>LOGGING NODE STACKS</span>
+                  <span className="text-emerald-400 animate-pulse">● SECURE_STREAM_LIVE</span>
+                </div>
+
+                <div className="space-y-1.5 h-20 overflow-hidden">
+                  {loadingLogs.slice(0, loadingStep + 1).map((log, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className={`flex items-center gap-2 ${i === loadingStep ? 'text-emerald-400 font-bold' : 'text-slate-600'}`}
+                    >
+                      <span className="text-slate-800">&gt;</span>
+                      <span className="truncate">{log}</span>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Progress bar container */}
+                <div className="mt-3 space-y-1">
+                  <div className="flex justify-between text-[8px] text-slate-500 font-bold">
+                    <span>SECTOR_DECRYPTION</span>
+                    <span>{Math.round(((loadingStep + 1) / loadingLogs.length) * 100)}%</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-900 rounded overflow-hidden border border-slate-800">
+                    <motion.div 
+                      className="h-full bg-emerald-500"
+                      initial={{ width: '0%' }}
+                      animate={{ width: `${((loadingStep + 1) / loadingLogs.length) * 100}%` }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 4. Results Section */}
+      <AnimatePresence>
+        {result && (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            className={`bg-slate-950/80 border border-slate-900 rounded-xl overflow-hidden shadow-2xl backdrop-blur-md relative`}
+          >
+            {/* Background cyber accent plate */}
+            <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
+
+            {/* Header / Verdict Actions */}
+            <div className="p-5 border-b border-slate-900/60 bg-slate-950/40 flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div className="flex items-center gap-2 font-mono">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">VERDICT_CODE:</span>
+                <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold border ${getScoreColor(result.credibilityScore)}`}>
+                  {result.verdict.toUpperCase()}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2.5 font-mono">
+                {/* Share Dropdown */}
+                <div className="relative">
+                  <button 
+                    onClick={() => { playCyberSFX('click'); setShowShareOptions(!showShareOptions); }}
+                    className="p-1.5 bg-slate-950 border border-slate-900 rounded text-slate-500 hover:text-white hover:border-slate-700 text-[10px] font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    SHARE
+                  </button>
+                  {showShareOptions && (
+                    <div className="absolute top-full right-0 mt-2 w-36 bg-slate-950 border border-slate-900 rounded-lg shadow-2xl z-20 overflow-hidden">
+                      <button 
+                        onClick={() => handleShare('twitter')}
+                        className="w-full text-left px-3.5 py-2.5 text-[10px] text-slate-400 hover:bg-slate-900 hover:text-white transition-colors flex items-center gap-2 border-b border-slate-900 font-bold"
+                      >
+                        <svg className="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+                        Twitter
+                      </button>
+                      <button 
+                        onClick={() => handleShare('facebook')}
+                        className="w-full text-left px-3.5 py-2.5 text-[10px] text-slate-400 hover:bg-slate-900 hover:text-white transition-colors flex items-center gap-2 font-bold"
+                      >
+                        <svg className="w-3 h-3 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.791-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                        Facebook
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* PDF Export Button */}
+                <button 
+                  onClick={handleExportPDF}
+                  className="p-1.5 bg-slate-950 border border-slate-900 rounded text-slate-500 hover:text-white hover:border-slate-700 text-[10px] font-bold flex items-center gap-1.5 cursor-pointer"
+                  title="Export forensic PDF payload"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  PDF_REPORT
+                </button>
+              </div>
+            </div>
+            
+            {/* Forensic details grid */}
+            <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+              
+              {/* Radial Score Gauge */}
+              <div className="md:col-span-1 flex flex-col items-center justify-center p-6 bg-slate-950/40 border border-slate-900 rounded-lg">
+                <div className="relative w-36 h-36 flex items-center justify-center">
+                  {/* Holographic glowing rings */}
+                  <div className="absolute inset-0 border border-dashed border-slate-800 rounded-full animate-spin [animation-duration:24s]" />
+                  
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="15.915"
+                      fill="none"
+                      stroke="#111827"
+                      strokeWidth="2.5"
+                    />
+                    <motion.circle
+                      cx="18"
+                      cy="18"
+                      r="15.915"
+                      fill="none"
+                      stroke={result.credibilityScore >= 80 ? '#10b981' : result.credibilityScore >= 50 ? '#f59e0b' : '#ef4444'}
+                      strokeWidth="2.5"
+                      strokeDasharray="100"
+                      initial={{ strokeDashoffset: 100 }}
+                      animate={{ strokeDashoffset: 100 - result.credibilityScore }}
+                      transition={{ duration: 1.2, ease: 'easeOut' }}
+                    />
+                  </svg>
+                  
+                  <div className="absolute flex flex-col items-center font-mono">
+                    <span className="text-3xl font-black text-white">{result.credibilityScore}%</span>
+                    <span className="text-[8px] text-slate-500 uppercase tracking-wider font-bold">Credibility</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Analysis payload descriptions */}
+              <div className="md:col-span-2 space-y-4">
+                {/* Visual verdict description banner */}
+                <div className="p-4 bg-slate-950 border border-slate-900 rounded-lg flex items-start gap-4">
+                  <div className="flex-shrink-0 mt-0.5">
+                    {getScoreVerdictStyle(result.credibilityScore).icon}
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-extrabold text-white font-mono uppercase tracking-widest">
+                      [ {getScoreVerdictStyle(result.credibilityScore).label} ]
+                    </h4>
+                    <p className="text-[10px] text-slate-400 font-mono leading-relaxed">
+                      {getScoreVerdictStyle(result.credibilityScore).desc}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div className="font-mono">
+                  <h4 className="text-[10px] uppercase text-slate-500 font-black tracking-widest mb-1">
+                    Payload Summary
+                  </h4>
+                  <p className="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3 rounded-lg border border-slate-900">
+                    {result.summary}
+                  </p>
+                </div>
+                
+                {/* Reasoning */}
+                <div className="font-mono">
+                  <h4 className="text-[10px] uppercase text-slate-500 font-black tracking-widest mb-1">
+                    Core ML Reasoning
+                  </h4>
+                  <div className="text-xs text-slate-400 leading-relaxed border-l-2 border-blue-500 pl-4 py-1.5 bg-blue-950/10 rounded-r-lg">
+                    "{result.reasoning}"
+                  </div>
+                </div>
+
+                {/* Sources */}
+                {result.sources.length > 0 && (
+                  <div className="font-mono">
+                     <h4 className="text-[10px] uppercase text-slate-500 font-black tracking-widest mb-2">
+                       Linked Sources / Coordinates
+                     </h4>
+                     <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-blue-400">
+                       {result.sources.map((source, i) => (
+                         <li key={i} className="bg-slate-950 border border-slate-900 p-2 rounded truncate hover:border-slate-800 transition-colors">
+                           🔗 {source}
+                         </li>
+                       ))}
+                     </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};

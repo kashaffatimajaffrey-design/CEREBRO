@@ -1,0 +1,85 @@
+# CEREBRO v2 — full local stack.
+#   docker compose up -d                 core services
+#   docker compose --profile llm up -d   ...plus Ollama for local explanations
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: cerebro-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cerebro}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cerebro_dev_pw}
+      POSTGRES_DB: ${POSTGRES_DB:-cerebro}
+    ports: ["${POSTGRES_PORT:-5432}:5432"]
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      # Portable schema: plain Postgres + pgvector, no TimescaleDB.
+      # Matches what Railway and Supabase can actually run.
+      - ./backend/db/schema_portable.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cerebro} -d ${POSTGRES_DB:-cerebro}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: cerebro-redis
+    command: redis-server --appendonly yes
+    ports: ["${REDIS_PORT:-6379}:6379"]
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: cerebro-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-cerebro}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-cerebro_dev_pw}
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [minio_data:/data]
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cerebro-api
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-cerebro}:${POSTGRES_PASSWORD:-cerebro_dev_pw}@db:5432/${POSTGRES_DB:-cerebro}
+      REDIS_URL: redis://redis:6379/0
+      OLLAMA_BASE_URL: http://ollama:11434
+      S3_ENDPOINT: http://minio:9000
+    ports: ["${API_PORT:-8000}:8000"]
+    volumes:
+      - ./backend/services:/app/services
+      - model_cache:/root/.cache/huggingface
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    restart: unless-stopped
+
+  # Optional. The platform runs without it — explanations fall back to a
+  # deterministic template, and detection is unaffected either way.
+  ollama:
+    image: ollama/ollama:latest
+    container_name: cerebro-ollama
+    ports: ["${OLLAMA_PORT:-11434}:11434"]
+    volumes: [ollama_data:/root/.ollama]
+    profiles: ["llm"]
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  redis_data:
+  minio_data:
+  ollama_data:
+  model_cache:

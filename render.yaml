@@ -1,0 +1,48 @@
+# CEREBRO — Render Blueprint (free tier).
+#
+# One-click backend + Postgres. On render.com: New → Blueprint → connect this
+# repo → Apply. Render reads this file, provisions a free Postgres (with pgvector),
+# builds the slim API image, generates the secrets, and wires DATABASE_URL in.
+#
+# Two things you still set by hand after the first deploy:
+#   - CORS_ORIGINS  -> your Vercel/Netlify frontend URL (marked sync:false below)
+#   - enable pgvector: Render's Postgres supports it; AUTO_APPLY_SCHEMA runs the
+#     schema on boot, which begins with CREATE EXTENSION IF NOT EXISTS vector.
+#
+# Free tier caveats (by Render's design, not ours): the web service sleeps after
+# ~15 min idle and cold-starts on the next request; the free database expires
+# after 30 days. Fine for a demo/FYP; upgrade the plans for anything persistent.
+
+databases:
+  - name: cerebro-db
+    plan: free
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: cerebro-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile.render
+    dockerContext: ./backend
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cerebro-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true          # Render generates a strong value
+      - key: TOKEN_ENCRYPTION_KEY
+        generateValue: true
+      - key: AUTO_APPLY_SCHEMA
+        value: "true"                 # applies schema_portable.sql on first boot
+      - key: SESSION_COOKIE_SAMESITE
+        value: none                   # frontend is a different site
+      - key: CORS_ORIGINS
+        sync: false                   # set to your frontend URL after it deploys
+      - key: LLM_PROVIDER
+        value: template               # no key needed; set to groq + GROQ_API_KEY for real prose

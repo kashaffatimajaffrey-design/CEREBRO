@@ -1,0 +1,38 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# node
+node_modules/
+dist/
+*.local
+
+# models & data — downloaded corpora and trained artifacts are never committed;
+# regenerate with scripts/fetch_datasets.py + scripts/train_*.py
+data/raw/
+data/models/
+backend/data/
+backend/models/
+models/
+*.pt
+*.pkl
+*.joblib
+*.safetensors
+# ...but keep the dataset docs
+!backend/data/README.md
+
+.DS_Store
