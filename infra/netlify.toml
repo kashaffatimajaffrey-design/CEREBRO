@@ -23,4 +23,4 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "geolocation=(), microphone=(), camera=()"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.onrender.com wss://*.onrender.com https://*.railway.app wss://*.railway.app https://*.googleapis.com; frame-ancestors 'none'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.koyeb.app wss://*.koyeb.app https://*.zeabur.app wss://*.zeabur.app https://*.hf.space wss://*.hf.space https://*.onrender.com wss://*.onrender.com https://*.railway.app wss://*.railway.app https://*.googleapis.com; frame-ancestors 'none'"
