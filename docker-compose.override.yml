@@ -1,0 +1,10 @@
+# Local run override — auto-loaded by `docker compose`.
+# Uses the slim image (no torch) so the local build is fast, and turns on the
+# demo-user seed so you can log in immediately. Remove this file to run the full
+# ML image from backend/Dockerfile instead.
+services:
+  api:
+    build:
+      dockerfile: Dockerfile.render
+    environment:
+      SEED_DEMO_USER: "true"
