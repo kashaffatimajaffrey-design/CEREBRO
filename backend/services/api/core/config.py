@@ -42,6 +42,11 @@ class Settings:
 
         self.cors_origins: list[str] = _env_list(
             "CORS_ORIGINS", "http://localhost:3000,http://localhost:5173")
+        # Also allow origins by regex — Vercel assigns per-project/preview
+        # subdomains (cerebro-<suffix>.vercel.app), so matching the pattern means
+        # a URL change doesn't break auth. Scoped to this project's Vercel URLs.
+        self.cors_origin_regex: str = os.getenv(
+            "CORS_ORIGIN_REGEX", r"https://cerebro-[a-z0-9-]+\.vercel\.app")
 
         self.secret_key: str = os.getenv("SECRET_KEY", "")
         self.access_token_ttl_minutes: int = int(os.getenv("ACCESS_TOKEN_TTL_MINUTES", "60"))
