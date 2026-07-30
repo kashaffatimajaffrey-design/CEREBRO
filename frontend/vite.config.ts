@@ -5,6 +5,13 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', 'VITE_');
 
+  // Where the dev-server proxy forwards API calls. This is a SERVER-side setting
+  // (kept out of the client bundle), separate from VITE_API_BASE which the
+  // browser code uses. In Docker the frontend and backend are separate
+  // containers, so PROXY_TARGET is set to the backend service (e.g. http://api:8000);
+  // running bare on the host it defaults to localhost:8000.
+  const proxyTarget = process.env.PROXY_TARGET || env.VITE_API_BASE || 'http://localhost:8000';
+
   return {
     plugins: [react()],
     resolve: {
@@ -18,12 +25,12 @@ export default defineConfig(({ mode }) => {
       // as they will in production — no CORS special-casing for dev only.
       proxy: {
         '/v1': {
-          target: env.VITE_API_BASE || 'http://localhost:8000',
+          target: proxyTarget,
           changeOrigin: true,
           ws: true,             // required for the /v1/stream WebSocket
         },
-        '/health': { target: env.VITE_API_BASE || 'http://localhost:8000', changeOrigin: true },
-        '/ready':  { target: env.VITE_API_BASE || 'http://localhost:8000', changeOrigin: true },
+        '/health': { target: proxyTarget, changeOrigin: true },
+        '/ready':  { target: proxyTarget, changeOrigin: true },
       },
     },
     build: {
