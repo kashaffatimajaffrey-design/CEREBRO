@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { ThreatMap } from './ThreatMap';
 import { motion, AnimatePresence } from 'motion/react';
 
 // Decrypted text scrambler component for that elite sci-fi feel
@@ -433,8 +434,10 @@ export const Auth: React.FC = () => {
 
   return (
     <div className={`min-h-screen relative flex items-center justify-center bg-slate-950 p-6 overflow-hidden select-none bg-gradient-to-b ${theme.bgGlow} transition-colors duration-1000`}>
-      {/* 1. Behind-Grid Infinite Canvas */}
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-0 brightness-[0.7]" />
+      {/* 1. Live global threat map backdrop */}
+      <div className="absolute inset-0 w-full h-full pointer-events-none z-0 brightness-[0.95]">
+        <ThreatMap accentRGB={theme.canvasColor} />
+      </div>
 
       {/* 2. Scanning CRT scanlines overhead filter */}
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_50%,rgba(0,0,0,0)_50%,rgba(0,0,0,0.45)_100%)] z-10" />
