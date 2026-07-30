@@ -87,7 +87,6 @@ async def _load_corpus(tenant_id: str) -> list[Document]:
         ORDER BY d.ingested_at DESC
         LIMIT 5000
         """,
-        tenant_id,
     )
     corpus: list[Document] = []
     for r in rows:
