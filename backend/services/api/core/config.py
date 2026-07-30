@@ -83,7 +83,7 @@ class Settings:
         self.seed_demo_user: bool = os.getenv("SEED_DEMO_USER", "false").lower() in {
             "1", "true", "yes", "on"
         }
-        self.demo_email: str = os.getenv("DEMO_EMAIL", "demo@cerebro.local")
+        self.demo_email: str = os.getenv("DEMO_EMAIL", "demo@cerebro.app")
         self.demo_password: str = os.getenv("DEMO_PASSWORD", "cerebro-demo-2026")
 
         self._validate()

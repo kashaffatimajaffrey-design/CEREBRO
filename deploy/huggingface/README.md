@@ -43,4 +43,4 @@ public repo and runs the slim API.
    creates the tables and the pgvector extension on first boot; `SEED_DEMO_USER`
    creates the demo login.
 
-Login once it's all up: `demo@cerebro.local` / `cerebro-demo-2026`.
+Login once it's all up: `demo@cerebro.app` / `cerebro-demo-2026`.

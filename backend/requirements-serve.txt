@@ -17,6 +17,7 @@
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
 pydantic==2.10.4
+email-validator==2.2.0          # required by pydantic EmailStr (auth router)
 python-multipart==0.0.20
 httpx==0.28.1
 

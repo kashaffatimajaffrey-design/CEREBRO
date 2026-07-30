@@ -1,0 +1,13 @@
+# Build pgvector onto the cached postgres:16-alpine, avoiding the pgvector image
+# (which won't download on some restricted networks). Alpine packages come from
+# a different CDN and install as small individual files. with_llvm=no skips
+# LLVM bitcode generation so we don't need the large clang/llvm packages.
+FROM postgres:16-alpine
+RUN set -eux; \
+    apk add --no-cache --virtual .build build-base git; \
+    git clone --depth 1 --branch v0.8.0 https://github.com/pgvector/pgvector.git /tmp/pgvector; \
+    cd /tmp/pgvector; \
+    make with_llvm=no; \
+    make with_llvm=no install; \
+    apk del .build; \
+    rm -rf /tmp/pgvector

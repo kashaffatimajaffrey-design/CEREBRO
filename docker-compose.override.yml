@@ -1,8 +1,13 @@
 # Local run override — auto-loaded by `docker compose`.
-# Uses the slim image (no torch) so the local build is fast, and turns on the
-# demo-user seed so you can log in immediately. Remove this file to run the full
-# ML image from backend/Dockerfile instead.
+# - db uses the locally-built pgvector image (cerebro-pgvector:pg16), so we don't
+#   need to pull pgvector/pgvector from Docker Hub (blocked on some networks).
+#   Build it once:  docker build -f deploy/local/Dockerfile.pgvector -t cerebro-pgvector:pg16 .
+# - api uses the slim image (no torch) so the build is fast.
+# - the demo-user seed is on so you can log in immediately.
+# Remove this file to run the stock compose (full ML image + Hub pgvector).
 services:
+  db:
+    image: cerebro-pgvector:pg16
   api:
     build:
       dockerfile: Dockerfile.render

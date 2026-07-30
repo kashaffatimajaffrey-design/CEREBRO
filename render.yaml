@@ -43,7 +43,7 @@ services:
       - key: SEED_DEMO_USER
         value: "true"                 # creates a demo login on first boot (see DEMO_* below)
       - key: DEMO_EMAIL
-        value: "demo@cerebro.local"
+        value: "demo@cerebro.app"
       - key: DEMO_PASSWORD
         value: "cerebro-demo-2026"    # CHANGE THIS in the Render dashboard before sharing
       - key: SESSION_COOKIE_SAMESITE
