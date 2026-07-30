@@ -1,26 +1,13 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, HistoryItem } from '../types';
-import { 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  signInWithPopup, 
-  GoogleAuthProvider 
-} from 'firebase/auth';
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  collection, 
-  onSnapshot, 
-  query, 
-  orderBy,
-  updateDoc,
-  serverTimestamp,
-  getDocFromServer
-} from 'firebase/firestore';
-import { auth, db, handleFirestoreError, OperationType } from '../services/firebase';
+
+// CEREBRO auth — backed by the FastAPI backend, not Firebase.
+//
+// Login/register hit /v1/auth/*, which sets an httpOnly session cookie; the token
+// never touches JavaScript. Session is restored on load via /v1/auth/me. The
+// per-user scan history is kept in localStorage (the backend stays the source of
+// truth for detections; this is just the analyst's local log the dashboard shows).
+const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
 interface AuthContextType {
   user: User | null;
@@ -29,215 +16,162 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   addToHistory: (item: HistoryItem) => Promise<void>;
-  updateUser: (data: { name: string, email: string }) => Promise<void>;
+  removeFromHistory: (id: string) => Promise<void>;
+  updateUser: (data: { name: string; email: string }) => Promise<void>;
   loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function getFriendlyAuthErrorMessage(err: any): string {
-  const code = err?.code || '';
-  const message = err?.message || String(err);
-  
-  if (code === 'auth/operation-not-allowed' || message.includes('operation-not-allowed')) {
-    return "FIREBASE CONFIGURATION ERROR: The Email/Password sign-in provider is not enabled in your Firebase Console. Please open your Firebase Console (console.firebase.google.com), navigate to Authentication -> Sign-in method, click 'Add new provider', select 'Email/Password', enable it, and save the changes.";
+const historyKey = (userId: string) => `cerebro_history_${userId}`;
+
+function loadHistory(userId: string): HistoryItem[] {
+  try {
+    return JSON.parse(localStorage.getItem(historyKey(userId)) || '[]');
+  } catch {
+    return [];
   }
-  if (code === 'auth/popup-closed-by-user' || message.includes('popup-closed-by-user')) {
-    return "GOOGLE SIGN-IN BLOCKED/CLOSED: The Google SSO popup was closed or blocked. Because this preview runs in a sandboxed iframe, your browser may block third-party authentication cookies/popups. To fix this, click 'Open in New Tab' at the top right of the preview pane to run in a standalone window, or use Email/Password below.";
+}
+
+function saveHistory(userId: string, history: HistoryItem[]) {
+  try {
+    localStorage.setItem(historyKey(userId), JSON.stringify(history));
+  } catch {
+    /* storage full / unavailable — non-fatal */
   }
-  if (code === 'auth/cancelled-popup-request' || message.includes('cancelled-popup-request')) {
-    return "GOOGLE SIGN-IN PENDING: Another login request is already in progress. Please wait a moment, reload the page, or click 'Open in New Tab' at the top right of the preview pane to run standalone.";
+}
+
+async function apiFetch(path: string, options: RequestInit = {}) {
+  return fetch(`${API_BASE}${path}`, {
+    ...options,
+    credentials: 'include', // send/receive the httpOnly session cookie
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+  });
+}
+
+async function extractDetail(res: Response): Promise<string | undefined> {
+  try {
+    const body = await res.json();
+    if (typeof body?.detail === 'string') return body.detail;
+    if (Array.isArray(body?.detail)) return body.detail[0]?.msg; // pydantic validation
+    if (typeof body?.message === 'string') return body.message;
+  } catch {
+    /* non-JSON */
   }
-  if (code === 'auth/network-request-failed' || message.includes('network-request-failed')) {
-    return "NETWORK BLOCKED: Network connection failed. This is likely due to iframe sandbox restrictions in your browser. Please click 'Open in New Tab' at the top right of the preview pane to run standalone.";
+  return undefined;
+}
+
+function friendlyError(status: number, detail?: string): string {
+  if (status === 0) {
+    return 'NETWORK BLOCKED: could not reach the CEREBRO API. Confirm the backend is deployed and VITE_API_BASE points to it.';
   }
-  if (message.includes('Pending promise') || message.includes('INTERNAL ASSERTION FAILED')) {
-    return "SSO CONFLICT: A pending authentication request is stuck. Please click 'Open in New Tab' at the top right of the preview pane to sign in securely, or reload the page and sign in using Email/Password.";
-  }
-  if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
-    return "AUTHENTICATION FAILED: Invalid credentials. Please verify your email and key signature, or register a new footprint.";
-  }
-  return message || 'Secure Identity Exchange handshake disrupted.';
+  if (status === 401) return 'AUTHENTICATION FAILED: invalid email or security key.';
+  if (status === 409) return detail || 'An account with this email already exists — switch to [ SIGN_IN ].';
+  if (status === 422) return detail || 'Invalid input: check the email format and that the key is at least 8 characters.';
+  return detail || 'Secure identity handshake disrupted. Please retry.';
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Helper: test connection to Firestore of the remote database on startup
+  const hydrate = useCallback((profile: any): User => {
+    const id: string = profile.user_id || profile.id;
+    return {
+      id,
+      name: profile.display_name || profile.email || 'Analyst',
+      email: profile.email || '',
+      history: loadHistory(id),
+    };
+  }, []);
+
+  // Restore an existing session on load (the cookie survives reloads).
   useEffect(() => {
-    async function validateConnection() {
+    let mounted = true;
+    (async () => {
       try {
-        await getDocFromServer(doc(db, 'test', 'handshake'));
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration or network status.");
+        const res = await apiFetch('/v1/auth/me');
+        if (res.ok && mounted) {
+          setUser(hydrate(await res.json()));
         }
+      } catch {
+        /* API unreachable — treat as logged out */
+      } finally {
+        if (mounted) setLoading(false);
       }
-    }
-    validateConnection();
-  }, []);
-
-  // Tracks Firebase Authentication State Loop
-  useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setLoading(true);
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        
-        try {
-          // Retrieve/Verify security analyst profile
-          let userSnap = await getDoc(userRef);
-          
-          if (!userSnap.exists()) {
-            // Profile does not exist yet (e.g. from dynamic Google Single Sign-On)
-            const newUserProfile = {
-              id: firebaseUser.uid,
-              name: firebaseUser.displayName || 'Cryptographic Analyst',
-              email: firebaseUser.email || '',
-              createdAt: serverTimestamp()
-            };
-            await setDoc(userRef, newUserProfile);
-            userSnap = await getDoc(userRef);
-          }
-
-          const userData = userSnap.data();
-          
-          // Setup real-time real subcollection subscription listener for History logs
-          const historyRef = collection(db, 'users', firebaseUser.uid, 'history');
-          const historyQuery = query(historyRef, orderBy('date', 'desc'));
-
-          const unsubscribeHistory = onSnapshot(historyQuery, (snapshot) => {
-            const mappedHistoryList: HistoryItem[] = [];
-            snapshot.forEach((histDoc) => {
-              const histData = histDoc.data();
-              
-              // Map Timestamp to visual ISO string
-              let dateString = new Date().toISOString();
-              if (histData.date && typeof histData.date.toDate === 'function') {
-                dateString = histData.date.toDate().toISOString();
-              } else if (histData.date) {
-                dateString = new Date(histData.date).toISOString();
-              }
-
-              mappedHistoryList.push({
-                id: histDoc.id,
-                date: dateString,
-                type: histData.type,
-                summary: histData.summary,
-                result: histData.result
-              });
-            });
-
-            setUser({
-              id: firebaseUser.uid,
-              name: userData?.name || 'Cryptographic Analyst',
-              email: userData?.email || firebaseUser.email || '',
-              history: mappedHistoryList
-            });
-            setLoading(false);
-          }, (error) => {
-            // Handle snapshot list operations errors conformant with rules
-            handleFirestoreError(error, OperationType.LIST, `users/${firebaseUser.uid}/history`);
-            setLoading(false);
-          });
-
-          return () => {
-            unsubscribeHistory();
-          };
-
-        } catch (err) {
-          console.error("Failed to compile user profile details: ", err);
-          setLoading(false);
-        }
-      } else {
-        setUser(null);
-        setLoading(false);
-      }
-    });
-
-    return () => unsubscribeAuth();
-  }, []);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [hydrate]);
 
   const login = async (email: string, password: string) => {
+    let res: Response;
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (err: any) {
-      console.error("Firebase Login Incident: ", err);
-      throw new Error(getFriendlyAuthErrorMessage(err));
+      res = await apiFetch('/v1/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+    } catch {
+      throw new Error(friendlyError(0));
     }
+    if (!res.ok) throw new Error(friendlyError(res.status, await extractDetail(res)));
+    setUser(hydrate(await res.json()));
   };
 
   const signup = async (name: string, email: string, password: string) => {
+    let res: Response;
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const firebaseUser = userCredential.user;
-      
-      // Save full static profile shape inside the users database conformant with security filters
-      const userRef = doc(db, 'users', firebaseUser.uid);
-      await setDoc(userRef, {
-        id: firebaseUser.uid,
-        name: name,
-        email: email,
-        createdAt: serverTimestamp()
+      res = await apiFetch('/v1/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ name, email, password }),
       });
-    } catch (err: any) {
-      console.error("Firebase Signup Incident: ", err);
-      throw new Error(getFriendlyAuthErrorMessage(err));
+    } catch {
+      throw new Error(friendlyError(0));
     }
+    if (!res.ok) throw new Error(friendlyError(res.status, await extractDetail(res)));
+    setUser(hydrate(await res.json()));
   };
 
   const loginWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (err: any) {
-      console.error("Google SSO Incident: ", err);
-      throw new Error(getFriendlyAuthErrorMessage(err));
-    }
+    throw new Error(
+      'Google sign-in is not enabled on this deployment. Use email and password, or the [ SIGN_UP ] tab to register instantly.'
+    );
   };
 
   const logout = async () => {
-    await signOut(auth);
+    try {
+      await apiFetch('/v1/auth/logout', { method: 'POST' });
+    } catch {
+      /* clear locally regardless */
+    }
+    setUser(null);
   };
 
   const addToHistory = async (item: HistoryItem) => {
-    if (!user) {
-      throw new Error('Analyst must be safely connected to transmit threat records.');
-    }
-    const path = `users/${user.id}/history/${item.id}`;
-    try {
-      const recordDocRef = doc(db, 'users', user.id, 'history', item.id);
-      await setDoc(recordDocRef, {
-        id: item.id,
-        date: serverTimestamp(), // Conformant to rules strict request.time validation
-        type: item.type,
-        summary: item.summary,
-        result: item.result
-      });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, path);
-    }
+    setUser((prev) => {
+      if (!prev) return prev;
+      const history = [item, ...prev.history].slice(0, 200);
+      saveHistory(prev.id, history);
+      return { ...prev, history };
+    });
   };
 
-  const updateUser = async (data: { name: string, email: string }) => {
-    if (!user) {
-      throw new Error('Analyst context is sterile.');
-    }
-    const path = `users/${user.id}`;
-    try {
-      const userRef = doc(db, 'users', user.id);
-      await updateDoc(userRef, {
-        name: data.name
-        // Immutable field email is locked in rules, so only update name online
-      });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, path);
-    }
+  const removeFromHistory = async (id: string) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const history = prev.history.filter((h) => h.id !== id);
+      saveHistory(prev.id, history);
+      return { ...prev, history };
+    });
+  };
+
+  const updateUser = async (data: { name: string; email: string }) => {
+    // Display name is local for now; email is the account key and is immutable here.
+    setUser((prev) => (prev ? { ...prev, name: data.name } : prev));
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, loginWithGoogle, logout, addToHistory, updateUser, loading }}>
+    <AuthContext.Provider
+      value={{ user, login, signup, loginWithGoogle, logout, addToHistory, removeFromHistory, updateUser, loading }}
+    >
       {children}
     </AuthContext.Provider>
   );

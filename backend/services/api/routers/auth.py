@@ -33,6 +33,7 @@ from services.api.core.deps import Principal, current_principal
 from services.api.core.security import (
     create_access_token,
     generate_token,
+    hash_password,
     hash_token,
     session_expiry,
     verify_password,
@@ -133,6 +134,70 @@ async def login(req: LoginRequest, request: Request, response: Response) -> Logi
     return LoginResponse(
         user_id=user_id, tenant_id=tenant_id, role=role,
         display_name=row["display_name"], access_token=access_token,
+    )
+
+
+class RegisterRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=200)
+
+
+@router.post("/register", response_model=LoginResponse, summary="Create an account and sign in")
+async def register(req: RegisterRequest, request: Request, response: Response) -> LoginResponse:
+    # Each signup gets its own tenant (workspace), so a new account starts with a
+    # clean, isolated view — which is exactly what row-level security enforces.
+    # Global email uniqueness keeps the sign-in lookup unambiguous.
+    existing = await db.fetch_unscoped(
+        "SELECT 1 FROM cerebro.users WHERE email = $1 LIMIT 1", req.email
+    )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account with this email already exists. Sign in instead.",
+        )
+
+    tenant = await db.fetch_unscoped(
+        """
+        INSERT INTO cerebro.tenants (name, slug)
+        VALUES ($1, $2)
+        ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
+        RETURNING id
+        """,
+        f"{req.name}'s workspace", req.email,
+    )
+    tenant_id = str(tenant[0]["id"])
+
+    user = await db.fetch_unscoped(
+        """
+        INSERT INTO cerebro.users (tenant_id, email, display_name, role, password_hash)
+        VALUES ($1, $2, $3, 'owner', $4)
+        RETURNING id
+        """,
+        tenant_id, req.email, req.name, hash_password(req.password),
+    )
+    user_id = str(user[0]["id"])
+
+    access_token = create_access_token(
+        user_id=user_id, tenant_id=tenant_id, role="owner",
+        secret=settings.secret_key, ttl_minutes=settings.access_token_ttl_minutes,
+    )
+    refresh_token = generate_token()
+    await db.fetch_unscoped(
+        """
+        INSERT INTO cerebro.sessions (user_id, token_hash, user_agent, ip, expires_at)
+        VALUES ($1, $2, $3, $4, $5)
+        """,
+        user_id, hash_token(refresh_token),
+        request.headers.get("user-agent"),
+        request.client.host if request.client else None,
+        session_expiry(),
+    )
+
+    _set_session_cookie(response, access_token)
+    return LoginResponse(
+        user_id=user_id, tenant_id=tenant_id, role="owner",
+        display_name=req.name, access_token=access_token,
     )
 
 

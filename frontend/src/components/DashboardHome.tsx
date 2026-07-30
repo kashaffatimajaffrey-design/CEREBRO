@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import { StatCard } from './StatCard';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../services/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
 import { playCyberSFX } from '../utils/audio';
 import { 
   ShieldAlert, 
@@ -111,7 +109,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ systemColor = 'blu
     };
   }, [API_BASE, loadMetrics]);
 
-  const { user } = useAuth();
+  const { user, removeFromHistory } = useAuth();
   const history = user?.history || [];
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -255,9 +253,9 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ systemColor = 'blu
     setDeletingId(id);
     playCyberSFX('click');
     try {
-      await deleteDoc(doc(db, 'users', user.id, 'history', id));
+      await removeFromHistory(id);
     } catch (err) {
-      console.error("Forensic Log Disruption: Failed to delete doc from Firestore", err);
+      console.error("Forensic log disruption: failed to remove record", err);
     } finally {
       setDeletingId(null);
     }
