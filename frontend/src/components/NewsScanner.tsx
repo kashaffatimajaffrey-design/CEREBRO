@@ -510,8 +510,11 @@ export const NewsScanner: React.FC = () => {
                      </h4>
                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-blue-400">
                        {result.sources.map((source, i) => (
-                         <li key={i} className="bg-slate-950 border border-slate-900 p-2 rounded truncate hover:border-slate-800 transition-colors">
-                           🔗 {source}
+                         <li key={i}>
+                           <a href={source} target="_blank" rel="noopener noreferrer"
+                              className="block bg-slate-950 border border-slate-900 p-2 rounded truncate hover:border-cyan-800 hover:text-cyan-300 transition-colors">
+                             🔗 {source}
+                           </a>
                          </li>
                        ))}
                      </ul>

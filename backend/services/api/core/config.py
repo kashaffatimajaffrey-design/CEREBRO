@@ -63,6 +63,9 @@ class Settings:
         # is the whole reason the exchange happens on the server.
         self.google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "")
         self.google_client_secret: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+        # Google Fact Check Tools API key (free) — enables real, citable news
+        # verification with links to fact-checkers. https://developers.google.com/fact-check/tools/api
+        self.fact_check_api_key: str = os.getenv("FACT_CHECK_API_KEY", "")
         self.google_token_url: str = os.getenv(
             "GOOGLE_TOKEN_URL", "https://oauth2.googleapis.com/token")
         self.token_encryption_key: str = os.getenv("TOKEN_ENCRYPTION_KEY", "")

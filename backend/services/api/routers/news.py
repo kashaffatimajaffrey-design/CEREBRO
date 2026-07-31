@@ -32,6 +32,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 
+from services.api.core.config import settings
 from services.api.core.db import db, emit_detection
 from services.api.core.deps import Principal, current_principal
 from services.ml.rag.retrieval import Document
@@ -221,6 +222,70 @@ def _heuristic_credibility(text: str) -> tuple[int, str, str]:
     return score, verdict, reasoning
 
 
+async def _fact_check(text: str) -> tuple[int, str, str, list[str]] | None:
+    """
+    Query the Google Fact Check Tools API (free key) for real fact-checks of the
+    claim. Returns (score, verdict, reasoning, source_urls) — where the score is
+    derived from what actual fact-checkers rated it, and the sources are their
+    article URLs so a reader can verify for themselves. None if no key or no hit.
+    """
+    key = settings.fact_check_api_key
+    if not key:
+        return None
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.get(
+                "https://factchecktools.googleapis.com/v1alpha1/claims:search",
+                params={"query": text[:300], "key": key, "languageCode": "en"},
+            )
+        if r.status_code != 200:
+            return None
+        data = r.json()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("fact-check lookup failed: %s", exc)
+        return None
+
+    reviews: list[dict[str, str]] = []
+    for c in data.get("claims", [])[:6]:
+        for rev in (c.get("claimReview") or [])[:2]:
+            reviews.append({
+                "publisher": (rev.get("publisher") or {}).get("name", "fact-checker"),
+                "rating": rev.get("textualRating", ""),
+                "url": rev.get("url", ""),
+            })
+    if not reviews:
+        return None
+
+    vals: list[int] = []
+    for rev in reviews:
+        rt = rev["rating"].lower()
+        if "pants on fire" in rt or "fabricated" in rt or (
+            "false" in rt and "mostly true" not in rt and "not false" not in rt):
+            vals.append(12)
+        elif any(k in rt for k in ("mostly false", "misleading", "mixture",
+                                    "half true", "partly", "distorts", "exaggerat")):
+            vals.append(40)
+        elif any(k in rt for k in ("mostly true", "accurate", "correct")) or rt.strip() == "true":
+            vals.append(85)
+        elif any(k in rt for k in ("unproven", "unverified", "no evidence", "research")):
+            vals.append(50)
+        else:
+            vals.append(45)
+    score = int(round(sum(vals) / len(vals)))
+    verdict = ("Fake News" if score < 25 else "Misleading" if score < 45
+               else "Credible" if score >= 65 else "Unverified")
+    reasoning = (
+        "Verified against published fact-checks — "
+        + "; ".join(f"{rev['publisher']} rated it '{rev['rating']}'"
+                    for rev in reviews[:4])
+        + ". Open the linked sources to read the full checks and decide for yourself."
+    )
+    sources = [rev["url"] for rev in reviews if rev["url"]][:8]
+    return score, verdict, reasoning, sources
+
+
 @router.post("/news", response_model=NewsAnalyzeResponse, summary="Verify claims in text against the evidence corpus")
 async def analyze_news(
     req: NewsAnalyzeRequest,
@@ -260,12 +325,16 @@ async def analyze_news(
 
     score, verdict, reasoning = _to_credibility(verdicts)
     score_source = "rag_evidence"
-
-    # If retrieval found no decisive evidence (empty/irrelevant corpus), a flat
-    # 50% for everything is useless. Fall back to the transparent linguistic
-    # heuristic so the score reflects the text — clearly labeled as heuristic.
     decisive = any(v.label in (Label.SUPPORTED, Label.REFUTED) for v in verdicts)
-    if not decisive and not sources:
+
+    # Preferred source of truth: real published fact-checks (with citable URLs).
+    fc = await _fact_check(req.text)
+    if fc:
+        score, verdict, reasoning, sources = fc
+        score_source = "fact_check"
+    elif not decisive and not sources:
+        # No corpus evidence and no fact-check hit → transparent linguistic
+        # heuristic so the score still reflects the text, clearly labeled.
         score, verdict, reasoning = _heuristic_credibility(req.text)
         score_source = "heuristic"
 
