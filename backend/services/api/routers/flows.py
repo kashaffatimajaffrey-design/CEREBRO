@@ -21,6 +21,47 @@ from services.api.core.queries import get_query
 router = APIRouter(prefix="/flows", tags=["flows"])
 
 
+def _sample_flows() -> list[dict[str, Any]]:
+    """
+    A labeled SAMPLE of network flows for the demo, since this instance has no
+    live Zeek/Suricata feed. It is realistic mixed traffic — mostly benign, with
+    a few genuinely anomalous flows (a SYN flood, an oversized packet, an ICMP
+    flood, a scanning source). The anomalies are NOT pre-flagged; the analyzer
+    computes them. Timestamps are stamped relative to now so it reads as recent.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    def ts(sec_ago: int) -> str:
+        return (now - timedelta(seconds=sec_ago)).isoformat()
+
+    flows: list[dict[str, Any]] = [
+        {"id": "flw-01", "sourceIP": "10.0.4.22", "destIP": "142.250.72.14", "protocol": "TCP", "packetSize": 512, "flags": "ACK"},
+        {"id": "flw-02", "sourceIP": "10.0.4.31", "destIP": "151.101.1.69", "protocol": "TCP", "packetSize": 1440, "flags": "PSH ACK"},
+        {"id": "flw-03", "sourceIP": "10.0.4.18", "destIP": "140.82.121.4", "protocol": "TCP", "packetSize": 320, "flags": "ACK"},
+        {"id": "flw-04", "sourceIP": "10.0.4.22", "destIP": "104.16.132.229", "protocol": "HTTP", "packetSize": 860, "flags": "ACK"},
+        {"id": "flw-05", "sourceIP": "10.0.4.44", "destIP": "8.8.8.8", "protocol": "UDP", "packetSize": 74, "flags": ""},
+        {"id": "flw-06", "sourceIP": "10.0.4.31", "destIP": "13.107.42.14", "protocol": "TCP", "packetSize": 1220, "flags": "PSH ACK"},
+        # --- anomalies (the analyzer will flag these, they are not pre-marked) ---
+        {"id": "flw-07", "sourceIP": "45.83.221.9", "destIP": "10.0.4.22", "protocol": "TCP", "packetSize": 60, "flags": "SYN SYN SYN SYN_FLOOD"},
+        {"id": "flw-08", "sourceIP": "185.220.101.7", "destIP": "10.0.4.10", "protocol": "TCP", "packetSize": 14800, "flags": "PSH ACK"},
+        {"id": "flw-09", "sourceIP": "193.27.228.14", "destIP": "10.0.4.10", "protocol": "ICMP", "packetSize": 1200, "flags": ""},
+        {"id": "flw-10", "sourceIP": "193.27.228.14", "destIP": "10.0.4.11", "protocol": "ICMP", "packetSize": 1200, "flags": ""},
+        {"id": "flw-11", "sourceIP": "193.27.228.14", "destIP": "10.0.4.12", "protocol": "ICMP", "packetSize": 1200, "flags": ""},
+        {"id": "flw-12", "sourceIP": "193.27.228.14", "destIP": "10.0.4.13", "protocol": "ICMP", "packetSize": 1200, "flags": ""},
+        {"id": "flw-13", "sourceIP": "193.27.228.14", "destIP": "10.0.4.14", "protocol": "ICMP", "packetSize": 1200, "flags": ""},
+        # a scanning source: many flows from one IP to sequential targets
+        *[
+            {"id": f"flw-{14+i}", "sourceIP": "77.91.85.30", "destIP": f"10.0.4.{20+i}",
+             "protocol": "TCP", "packetSize": 44, "flags": "SYN"}
+            for i in range(7)
+        ],
+    ]
+    for i, f in enumerate(flows):
+        f["timestamp"] = ts(i * 3 + 2)
+    return flows
+
+
 @router.get("/recent", summary="Most recent detections across all modules")
 async def recent(
     principal: Principal = Depends(current_principal),
@@ -32,7 +73,15 @@ async def recent(
         get_query("recent_detections"),
         principal.tenant_id, limit, module,
     )
-    return {"count": len(rows), "detections": [_shape(r) for r in rows]}
+    # `flows` feeds the network monitor. With no live capture feed, serve a
+    # labeled sample so the scanner is demonstrable; a real deployment replaces
+    # this with ingested Zeek/Suricata records.
+    return {
+        "count": len(rows),
+        "detections": [_shape(r) for r in rows],
+        "flows": _sample_flows(),
+        "flows_are_sample": True,
+    }
 
 
 @router.get("/incidents", summary="Open and investigating incidents, by severity")

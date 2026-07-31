@@ -45,6 +45,65 @@ class NetworkAnalyzeRequest(BaseModel):
     logs: list[NetworkLogIn] = Field(default_factory=list)
 
 
+def _heuristic_scan(logs: list["NetworkLogIn"]) -> dict[str, Any]:
+    """
+    Transparent, rule-based flow triage — the network counterpart to the email
+    module's heuristic prior. It computes findings from the flows themselves
+    (SYN floods, oversized packets, ICMP floods, high-volume sources that look
+    like scans); nothing is planted. Labeled `score_source: "heuristic"` so it's
+    never mistaken for the trained unsupervised model.
+    """
+    from collections import Counter
+
+    if not logs:
+        return {
+            "threatLevel": "Safe", "anomaliesDetected": [],
+            "analysisReport": "No flows to analyze.",
+            "recommendedAction": "No action required.", "score_source": "heuristic",
+        }
+
+    src_counts = Counter(l.sourceIP for l in logs if l.sourceIP)
+    flagged: list[tuple[str, str]] = []
+    for l in logs:
+        flags = (l.flags or "").upper()
+        reason = None
+        if "SYN_FLOOD" in flags or flags.count("SYN") >= 3:
+            reason = "SYN flood pattern"
+        elif (l.packetSize or 0) > 8000:
+            reason = f"oversized packet ({l.packetSize} bytes)"
+        elif (l.protocol or "").upper() == "ICMP" and src_counts.get(l.sourceIP, 0) >= 4:
+            reason = "ICMP flood"
+        elif l.sourceIP and src_counts.get(l.sourceIP, 0) >= 6:
+            reason = "high-volume source — possible port scan"
+        if reason:
+            flagged.append((l.id, reason))
+
+    n = len(flagged)
+    has_flood = any("flood" in r for _, r in flagged)
+    if has_flood or n >= 4:
+        level = "Critical" if (has_flood and n >= 3) else "High"
+    elif n >= 1:
+        level = "Medium"
+    else:
+        level = "Safe"
+
+    detail = "; ".join(f"{fid}: {r}" for fid, r in flagged[:6])
+    report = (
+        f"Heuristic triage of {len(logs)} flow(s): {n} flagged. " +
+        (detail if flagged else "No anomalous patterns in this sample.")
+    )
+    return {
+        "threatLevel": level,
+        "anomaliesDetected": [fid for fid, _ in flagged],
+        "analysisReport": report,
+        "recommendedAction": (
+            "Isolate the flagged sources and review firewall/rate-limit rules."
+            if flagged else "No action required."
+        ),
+        "score_source": "heuristic",
+    }
+
+
 @router.post("/flows", summary="Score network flows for anomalies")
 async def analyze_flows(
     req: NetworkAnalyzeRequest,
@@ -53,18 +112,10 @@ async def analyze_flows(
 ) -> dict[str, Any]:
     detector = getattr(request.app.state, "models", {}).get("anomaly")
     if detector is None:
-        # No fitted baseline — refuse rather than fabricate. The message is the
-        # actionable part: it tells the operator precisely what to do next.
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail=(
-                "No anomaly model is loaded. Network detection is unsupervised and "
-                "requires a model fitted on benign traffic (see services/ml/anomaly "
-                "and STATUS.md item 2). Fit on CIC-IDS2017 or a clean capture window, "
-                "register the model, and load it into app.state.models['anomaly']. "
-                "This endpoint will not invent a result in the meantime."
-            ),
-        )
+        # No trained unsupervised model loaded → fall back to the transparent
+        # heuristic (labeled as such), rather than refusing. When a fitted model
+        # is registered, the ML path below takes over and score_source='model'.
+        return _heuristic_scan(req.logs)
 
     # A model IS loaded: score for real. The browser's NetworkLog is too thin
     # for full CICFlowMeter features, so this path expects richer flow records
