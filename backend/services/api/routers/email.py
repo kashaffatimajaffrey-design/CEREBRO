@@ -14,16 +14,62 @@ from __future__ import annotations
 
 import base64
 import binascii
+import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 
+from services.api.core.db import db, emit_detection
+from services.api.core.deps import Principal, current_principal
 from services.ml.email.forensics import analyze_email, explain_prompt
 
 log = logging.getLogger(__name__)
 router = APIRouter()
+
+# Enum-guarded columns in email_analyses — pass NULL rather than a value the
+# CHECK constraint would reject.
+_SPF_OK = {"pass", "fail", "softfail", "neutral", "none", "temperror", "permerror"}
+_DKIM_OK = {"pass", "fail", "none", "temperror", "permerror"}
+_DMARC_OK = {"pass", "fail", "none"}
+_VERDICT_OK = {"benign", "low_confidence", "suspicious", "phishing", "malicious"}
+
+
+def _enum(value: str | None, allowed: set[str]) -> str | None:
+    return value if value in allowed else None
+
+
+async def _persist_email(principal: Principal, result: Any, score: float,
+                         score_source: str, verdict: str) -> None:
+    """Store the analysis so metrics populate and the data is collectable."""
+    try:
+        row = await db.fetchrow(
+            principal.tenant_id,
+            """
+            INSERT INTO cerebro.email_analyses
+                (tenant_id, message_id, from_display, from_addr, from_domain,
+                 reply_to_addr, return_path, subject, spf, dkim, dkim_domain,
+                 dmarc, dkim_aligned, features, indicators, risk_score,
+                 score_source, verdict)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,$15::jsonb,$16,$17,$18)
+            RETURNING id
+            """,
+            principal.tenant_id, result.message_id, result.from_display,
+            result.from_addr, result.from_domain, result.reply_to_addr,
+            result.return_path, result.subject,
+            _enum(result.spf, _SPF_OK), _enum(result.dkim, _DKIM_OK),
+            result.dkim_domain, _enum(result.dmarc, _DMARC_OK), result.dkim_aligned,
+            json.dumps(result.features), json.dumps([i.as_dict() for i in result.indicators]),
+            round(score, 4), score_source, _enum(verdict, _VERDICT_OK) or "benign",
+        )
+        await emit_detection(
+            principal.tenant_id, "email", verdict, round(score, 4),
+            ref_id=str(row["id"]) if row else None,
+            summary=f"{verdict}: {result.from_addr or 'unknown sender'}",
+        )
+    except Exception as exc:  # noqa: BLE001 - persistence must never fail the response
+        log.warning("email persistence skipped: %s", exc)
 
 MAX_MESSAGE_BYTES = 10 * 1024 * 1024
 
@@ -106,7 +152,11 @@ def _verdict_from_score(score: float) -> str:
     response_model=EmailAnalyzeResponse,
     summary="Analyze a full email message for phishing indicators",
 )
-async def analyze(req: EmailAnalyzeRequest, request: Request) -> EmailAnalyzeResponse:
+async def analyze(
+    req: EmailAnalyzeRequest,
+    request: Request,
+    principal: Principal = Depends(current_principal),
+) -> EmailAnalyzeResponse:
     raw: str | bytes = req.raw_message
     if req.is_base64url:
         try:
@@ -149,6 +199,9 @@ async def analyze(req: EmailAnalyzeRequest, request: Request) -> EmailAnalyzeRes
             # Explanation is cosmetic. Its failure must never fail the analysis.
             log.warning("explanation generation failed: %s", exc)
 
+    verdict = _verdict_from_score(score)
+    await _persist_email(principal, result, score, score_source, verdict)
+
     return EmailAnalyzeResponse(
         from_display=result.from_display,
         from_addr=result.from_addr,
@@ -158,7 +211,7 @@ async def analyze(req: EmailAnalyzeRequest, request: Request) -> EmailAnalyzeRes
         dkim=result.dkim,
         dmarc=result.dmarc,
         dkim_aligned=result.dkim_aligned,
-        verdict=_verdict_from_score(score),
+        verdict=verdict,
         risk_score=round(score, 4),
         score_source=score_source,
         indicators=[IndicatorOut(**i.as_dict()) for i in result.indicators],

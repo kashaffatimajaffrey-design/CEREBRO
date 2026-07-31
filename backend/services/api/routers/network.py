@@ -25,7 +25,24 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
+from services.api.core.db import emit_detection
 from services.api.core.deps import Principal, current_principal
+
+_RISK_BY_LEVEL = {"Critical": 0.95, "High": 0.75, "Medium": 0.5, "Low": 0.25, "Safe": 0.08}
+
+
+async def _persist_network(principal: Principal, result: dict[str, Any]) -> None:
+    """Record the scan as a detection so metrics populate and data is collected."""
+    try:
+        level = result.get("threatLevel", "Safe")
+        await emit_detection(
+            principal.tenant_id, "network", f"{level.lower()}_anomaly",
+            _RISK_BY_LEVEL.get(level, 0.3),
+            summary=(result.get("analysisReport") or "")[:180],
+        )
+    except Exception as exc:  # noqa: BLE001
+        import logging
+        logging.getLogger(__name__).warning("network persistence skipped: %s", exc)
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/analyze", tags=["network"])
@@ -115,7 +132,9 @@ async def analyze_flows(
         # No trained unsupervised model loaded → fall back to the transparent
         # heuristic (labeled as such), rather than refusing. When a fitted model
         # is registered, the ML path below takes over and score_source='model'.
-        return _heuristic_scan(req.logs)
+        result = _heuristic_scan(req.logs)
+        await _persist_network(principal, result)
+        return result
 
     # A model IS loaded: score for real. The browser's NetworkLog is too thin
     # for full CICFlowMeter features, so this path expects richer flow records
@@ -138,7 +157,7 @@ async def analyze_flows(
     results = detector.score(flows) if flows else []
 
     anomalous_ids = [r.flow_id for r in results if r.is_anomaly]
-    return {
+    result = {
         "threatLevel": "High" if anomalous_ids else "Safe",
         "anomaliesDetected": anomalous_ids,
         "analysisReport": (
@@ -151,3 +170,5 @@ async def analyze_flows(
         ),
         "score_source": "model",
     }
+    await _persist_network(principal, result)
+    return result

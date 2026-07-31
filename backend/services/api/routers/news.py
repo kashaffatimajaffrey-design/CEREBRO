@@ -32,7 +32,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 
-from services.api.core.db import db
+from services.api.core.db import db, emit_detection
 from services.api.core.deps import Principal, current_principal
 from services.ml.rag.retrieval import Document
 from services.ml.rag.verify import ClaimVerdict, Label, build_default_verifier
@@ -275,6 +275,16 @@ async def analyze_news(
     model_versions: dict[str, str] = {}
     for v in verdicts:
         model_versions.update(v.model_versions)
+
+    # Persist so metrics populate and the data is collectable. Risk is the
+    # inverse of credibility (a low-credibility claim is a high-risk detection).
+    try:
+        await emit_detection(
+            principal.tenant_id, "news", verdict,
+            round((100 - score) / 100, 4), summary=summary[:180],
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("news persistence skipped: %s", exc)
 
     return NewsAnalyzeResponse(
         credibilityScore=score,
