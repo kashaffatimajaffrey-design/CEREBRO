@@ -4,7 +4,7 @@ import { Sidebar } from './components/Sidebar';
 import { DashboardHome } from './components/DashboardHome';
 import { NewsScanner } from './components/NewsScanner';
 import { CyberMonitor } from './components/CyberMonitor';
-import { GmailScanner } from './components/GmailScanner';
+import { EmailScanner } from './components/EmailScanner';
 import { Auth } from './components/Auth';
 import { Profile } from './components/Profile';
 import { useAuth } from './context/AuthContext';
@@ -170,7 +170,7 @@ const App: React.FC = () => {
       case View.CYBER_MONITOR:
         return <CyberMonitor />;
       case View.EMAIL_SCANNER:
-        return <GmailScanner />;
+        return <EmailScanner />;
       case View.PROFILE:
         return <Profile />;
       default:
