@@ -7,14 +7,15 @@
 // work the same in dev and prod. `VITE_API_BASE` overrides the origin in builds
 // that call a remote API directly.
 import { NewsAnalysisResult, CyberAnalysisResult, NetworkLog, ThreatLevel } from "../types";
+import { authHeaders } from "./session";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include", // send the httpOnly session cookie
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    credentials: "include", // Bearer covers mobile; cookie is a desktop bonus
     body: JSON.stringify(body),
   });
 

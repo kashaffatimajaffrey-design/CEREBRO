@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NetworkLog, ThreatLevel, CyberAnalysisResult } from '../types';
 import { analyzeNetworkLogs } from '../services/apiService';
+import { authHeaders } from '../services/session';
 import { useAuth } from '../context/AuthContext';
 import { jsPDF } from 'jspdf';
 
@@ -20,6 +21,7 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 const fetchRecentFlows = async (limit = 25): Promise<NetworkLog[]> => {
   const res = await fetch(`${API_BASE}/v1/flows/recent?limit=${limit}`, {
     credentials: 'include',
+    headers: { ...authHeaders() },
   });
   if (!res.ok) {
     throw new Error(

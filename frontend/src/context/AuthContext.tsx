@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, HistoryItem } from '../types';
+import { setToken, clearToken, authHeaders } from '../services/session';
 
 // CEREBRO auth — backed by the FastAPI backend, not Firebase.
 //
@@ -44,8 +45,8 @@ function saveHistory(userId: string, history: HistoryItem[]) {
 async function apiFetch(path: string, options: RequestInit = {}) {
   return fetch(`${API_BASE}${path}`, {
     ...options,
-    credentials: 'include', // send/receive the httpOnly session cookie
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    credentials: 'include', // cookie works on desktop; Bearer covers mobile
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(options.headers || {}) },
   });
 }
 
@@ -113,7 +114,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(friendlyError(0));
     }
     if (!res.ok) throw new Error(friendlyError(res.status, await extractDetail(res)));
-    setUser(hydrate(await res.json()));
+    const data = await res.json();
+    if (data.access_token) setToken(data.access_token);
+    setUser(hydrate(data));
   };
 
   const signup = async (name: string, email: string, password: string) => {
@@ -127,7 +130,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(friendlyError(0));
     }
     if (!res.ok) throw new Error(friendlyError(res.status, await extractDetail(res)));
-    setUser(hydrate(await res.json()));
+    const data = await res.json();
+    if (data.access_token) setToken(data.access_token);
+    setUser(hydrate(data));
   };
 
   const loginWithGoogle = async () => {
@@ -142,6 +147,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       /* clear locally regardless */
     }
+    clearToken();
     setUser(null);
   };
 

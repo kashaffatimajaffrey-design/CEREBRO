@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { authHeaders } from '../services/session';
 import { playCyberSFX } from '../utils/audio';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShieldAlert, Mail, RefreshCw, AlertTriangle, CheckCircle2, FileText } from 'lucide-react';
@@ -49,7 +50,7 @@ export const EmailScanner: React.FC = () => {
     try {
       const res = await fetch(`${API_BASE}/v1/analyze/email`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         credentials: 'include',
         body: JSON.stringify({ raw_message: raw, generate_explanation: false }),
       });

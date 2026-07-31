@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import { StatCard } from './StatCard';
 import { useAuth } from '../context/AuthContext';
+import { authHeaders, getToken } from '../services/session';
 import { playCyberSFX } from '../utils/audio';
 import { 
   ShieldAlert, 
@@ -43,8 +44,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ systemColor = 'blu
   const loadMetrics = React.useCallback(async () => {
     try {
       const [volumeRes, summaryRes, readyRes] = await Promise.all([
-        fetch(`${API_BASE}/v1/metrics/threat-volume?days=7`, { credentials: 'include' }),
-        fetch(`${API_BASE}/v1/metrics/summary?hours=168`, { credentials: 'include' }),
+        fetch(`${API_BASE}/v1/metrics/threat-volume?days=7`, { credentials: 'include', headers: { ...authHeaders() } }),
+        fetch(`${API_BASE}/v1/metrics/summary?hours=168`, { credentials: 'include', headers: { ...authHeaders() } }),
         fetch(`${API_BASE}/ready`),
       ]);
 
@@ -97,7 +98,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ systemColor = 'blu
     const wsBase = API_BASE.replace(/^http/, 'ws');
     let ws: WebSocket | null = null;
     try {
-      ws = new WebSocket(`${wsBase}/v1/stream`);
+      ws = new WebSocket(`${wsBase}/v1/stream?token=${encodeURIComponent(getToken())}`);
       ws.onmessage = () => loadMetrics();
     } catch {
       /* stream unavailable; the periodic refresh below still applies */
