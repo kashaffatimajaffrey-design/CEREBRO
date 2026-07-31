@@ -26,6 +26,7 @@ therefore be empty, and that is a feature.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -148,6 +149,78 @@ def _to_credibility(verdicts: list[ClaimVerdict]) -> tuple[int, str, str]:
     return max(0, min(100, score)), verdict, reasoning
 
 
+# --- linguistic-credibility fallback (used only when the corpus has no evidence) ---
+
+_SENSATIONAL = (
+    "shocking", "unbelievable", "you won't believe", "miracle", "secret",
+    "exposed", "they don't want you to know", "wake up", "banned", "cover-up",
+    "cover up", "guaranteed", "must see", "the truth about", "mainstream media",
+    "big pharma", "what they aren't telling", "no one is talking about",
+)
+_CONSPIRACY = (
+    "microchip", "5g causes", "flat earth", "chemtrail", "illuminati",
+    "new world order", "depopulation", "plandemic", "vaccine causes autism",
+    "faked the", "staged", "crisis actor",
+)
+_DEATH_RUMOR = ("is dead", "has died", "found dead", "assassinated", "passed away")
+_CREDIBLE_SIGNALS = (
+    "according to", "reported", "study", "research", "university", "official",
+    "announced", "confirmed", "spokesperson", "data shows", "published in",
+    "peer-reviewed", "statement", "court", "report found",
+)
+
+
+def _heuristic_credibility(text: str) -> tuple[int, str, str]:
+    """
+    A transparent linguistic-credibility estimate for when the evidence corpus
+    has nothing relevant. NOT evidence-based verification — it reads writing-style
+    signals (sensationalism, conspiracy markers, sourcing/attribution) the way the
+    email module reads header signals, and is labeled score_source='heuristic'.
+    """
+    t = text.lower()
+    score = 55
+    notes: list[str] = []
+
+    sens = sum(1 for w in _SENSATIONAL if w in t)
+    if sens:
+        score -= min(30, sens * 10); notes.append(f"{sens} sensational/clickbait phrase(s)")
+    consp = sum(1 for w in _CONSPIRACY if w in t)
+    if consp:
+        score -= min(38, consp * 19); notes.append(f"{consp} known-conspiracy marker(s)")
+    if any(w in t for w in _DEATH_RUMOR):
+        score -= 16; notes.append("unverified death claim (a common misinformation pattern)")
+    cred = sum(1 for w in _CREDIBLE_SIGNALS if w in t)
+    if cred:
+        score += min(24, cred * 8); notes.append(f"{cred} attribution/sourcing signal(s)")
+
+    exclam = text.count("!")
+    if exclam >= 2:
+        score -= min(15, exclam * 4); notes.append("excessive exclamation")
+    letters = [c for c in text if c.isalpha()]
+    if letters and len(letters) > 20:
+        caps_ratio = sum(1 for c in letters if c.isupper()) / len(letters)
+        if caps_ratio > 0.3:
+            score -= 12; notes.append("heavy capitalization")
+    if re.search(r"\b(19|20)\d{2}\b", text) or re.search(r"\b\d+(\.\d+)?%\b", text):
+        score += 6; notes.append("contains specific figures/dates")
+
+    score = max(5, min(90, score))
+    if score < 40:
+        verdict = "Fake News" if score < 25 else "Misleading"
+    elif score >= 65:
+        verdict = "Credible"
+    else:
+        verdict = "Unverified"
+
+    reasoning = (
+        "No matching documents in the evidence corpus, so this is a transparent "
+        "linguistic-credibility estimate (heuristic), not evidence-based verification. "
+        + ("Signals — " + "; ".join(notes) + "." if notes else
+           "No strong linguistic signals either way.")
+    )
+    return score, verdict, reasoning
+
+
 @router.post("/news", response_model=NewsAnalyzeResponse, summary="Verify claims in text against the evidence corpus")
 async def analyze_news(
     req: NewsAnalyzeRequest,
@@ -186,6 +259,16 @@ async def analyze_news(
                 sources.append(url)
 
     score, verdict, reasoning = _to_credibility(verdicts)
+    score_source = "rag_evidence"
+
+    # If retrieval found no decisive evidence (empty/irrelevant corpus), a flat
+    # 50% for everything is useless. Fall back to the transparent linguistic
+    # heuristic so the score reflects the text — clearly labeled as heuristic.
+    decisive = any(v.label in (Label.SUPPORTED, Label.REFUTED) for v in verdicts)
+    if not decisive and not sources:
+        score, verdict, reasoning = _heuristic_credibility(req.text)
+        score_source = "heuristic"
+
     summary = req.text.strip().replace("\n", " ")
     summary = (summary[:280] + "…") if len(summary) > 280 else summary
 
@@ -201,4 +284,5 @@ async def analyze_news(
         sources=sources[:12],
         claims_checked=len(verdicts),
         model_versions=model_versions,
+        score_source=score_source,
     )
