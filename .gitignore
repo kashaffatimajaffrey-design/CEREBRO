@@ -36,3 +36,4 @@ models/
 !backend/data/README.md
 
 .DS_Store
+*.pdf
