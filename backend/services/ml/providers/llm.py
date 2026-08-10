@@ -376,11 +376,92 @@ class CerebrasProvider(OpenAICompatProvider):
         )
 
 
+class AnthropicProvider(LLMProvider):
+    """
+    Anthropic Claude via the Messages API (raw HTTP, matching the other
+    providers — no SDK dependency added to the image).
+
+    Used deliberately for the highest-quality *explanations*: the analyst-facing
+    "why this claim is credible / false" prose on the news path, and the email
+    summaries. Like every provider here it only NARRATES findings the
+    deterministic models already produced — it never classifies or scores.
+
+    Reads ANTHROPIC_API_KEY and CLAUDE_MODEL (default claude-sonnet-5). Sends no
+    temperature or thinking parameter: Sonnet-5/Opus-5 reject non-default
+    sampling params, and plain narration does not need extended thinking — which
+    also keeps latency and token cost down.
+    """
+
+    name = "anthropic"
+    _ENDPOINT = "https://api.anthropic.com/v1/messages"
+    _VERSION = "2023-06-01"
+
+    def __init__(self, api_key: str | None = None, model: str | None = None,
+                 timeout: float = 60.0) -> None:
+        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
+        self.model = model or os.getenv("CLAUDE_MODEL", "claude-sonnet-5")
+        self.timeout = timeout
+        if not self.api_key:
+            log.warning("AnthropicProvider constructed without an API key")
+
+    async def complete(
+        self,
+        prompt: str,
+        *,
+        system: str | None = None,
+        max_tokens: int = 512,
+        temperature: float = 0.2,  # accepted for interface parity; not forwarded
+        json_schema: dict[str, Any] | None = None,
+    ) -> LLMResponse:
+        if not self.api_key:
+            raise LLMError("ANTHROPIC_API_KEY is not set")
+
+        body: dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": max_tokens,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if system:
+            body["system"] = system
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                resp = await client.post(
+                    self._ENDPOINT,
+                    json=body,
+                    headers={
+                        "x-api-key": self.api_key,
+                        "anthropic-version": self._VERSION,
+                        "content-type": "application/json",
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+        except httpx.HTTPError as exc:
+            raise LLMError(f"Anthropic request failed: {exc}") from exc
+
+        text = "".join(
+            block.get("text", "")
+            for block in data.get("content", [])
+            if block.get("type") == "text"
+        )
+        usage = data.get("usage", {})
+        return LLMResponse(
+            text=text,
+            model=data.get("model", self.model),
+            provider=self.name,
+            prompt_tokens=usage.get("input_tokens"),
+            completion_tokens=usage.get("output_tokens"),
+        )
+
+
 _PROVIDERS: dict[str, type[LLMProvider]] = {
     "ollama": OllamaProvider,
     "groq": GroqProvider,
     "cerebras": CerebrasProvider,
     "gemini": GeminiProvider,
+    "anthropic": AnthropicProvider,
+    "claude": AnthropicProvider,
     "openai": OpenAICompatProvider,
     "openai_compat": OpenAICompatProvider,
     "template": TemplateProvider,
@@ -441,6 +522,13 @@ def default_chain() -> ResilientProvider:
     chain: list[LLMProvider] = []
     names = [os.getenv("LLM_PROVIDER", "ollama")]
     names += [n.strip() for n in os.getenv("LLM_FALLBACKS", "").split(",") if n.strip()]
+
+    # If an Anthropic key is configured, prefer Claude for explanation quality —
+    # setting the key IS the opt-in, so a deployment does not need a second env
+    # var to make it take effect. An explicit LLM_PROVIDER/LLM_FALLBACKS entry
+    # still wins, since we only prepend when Claude is not already in the chain.
+    if os.getenv("ANTHROPIC_API_KEY") and not {"anthropic", "claude"} & set(names):
+        names.insert(0, "anthropic")
 
     for name in names:
         try:

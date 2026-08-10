@@ -26,6 +26,7 @@ therefore be empty, and that is a feature.
 from __future__ import annotations
 
 import logging
+import os
 import re
 from typing import Any
 
@@ -286,6 +287,73 @@ async def _fact_check(text: str) -> tuple[int, str, str, list[str]] | None:
     return score, verdict, reasoning, sources
 
 
+_NARRATE_SYSTEM = (
+    "You are a misinformation analyst explaining a verdict that has ALREADY been "
+    "decided by retrieval and an entailment model. Your job is to explain WHY, in "
+    "plain language, so a non-expert understands the reasoning. Rules: never change "
+    "the verdict or the score; never invent evidence, sources, or statistics beyond "
+    "what you are given; if the evidence is thin, say plainly that it is thin and "
+    "that the verdict is low-confidence. Where a claim is false or unsupported, "
+    "explain what specifically fails — the mechanism, the missing evidence, or the "
+    "contradiction with the cited sources. Write 3-5 sentences, no bullet points, "
+    "no preamble."
+)
+
+
+async def _narrate(
+    request: Request,
+    reasoning: str,
+    verdict: str,
+    score: int,
+    score_source: str,
+    verdicts: list[ClaimVerdict],
+) -> str:
+    """
+    Ask the LLM to expand the deterministic `reasoning` line into an analyst
+    explanation. Returns the original reasoning unchanged on any failure, or when
+    only the template provider answered — a templated restatement adds nothing.
+    """
+    if os.getenv("NEWS_LLM_REASONING", "1").lower() in ("0", "false", "no"):
+        return reasoning
+
+    lines: list[str] = []
+    for v in verdicts[:6]:
+        lines.append(f"- claim: {v.claim[:300]}")
+        lines.append(f"  model verdict: {v.label.value} (confidence {v.confidence:.2f})")
+        for e in v.evidence[:3]:
+            lines.append(
+                f"    evidence [{e.stance.value}] {e.title[:120]} "
+                f"({e.domain or 'unknown source'}): {e.snippet[:240]}"
+            )
+    evidence_block = "\n".join(lines) or "- no retrieved evidence"
+
+    origin = {
+        "fact_check": "a published fact-check from a professional fact-checking organisation",
+        "rag_evidence": "retrieval over the evidence corpus plus an entailment (NLI) model",
+        "heuristic": "a linguistic heuristic only — NO external evidence was found, so "
+                     "confidence is low and you must say so",
+    }.get(score_source, score_source)
+
+    prompt = (
+        f"Overall verdict: {verdict} (credibility score {score}/100).\n"
+        f"How that verdict was reached: {origin}.\n"
+        f"System's one-line reasoning: {reasoning}\n\n"
+        f"Per-claim findings:\n{evidence_block}\n\n"
+        "Explain to the reader why this verdict was reached."
+    )
+
+    try:
+        resp = await request.app.state.llm.complete(
+            prompt, system=_NARRATE_SYSTEM, max_tokens=500, temperature=0.3
+        )
+        if resp.provider == "template" or not resp.text.strip():
+            return reasoning
+        return resp.text.strip()
+    except Exception as exc:  # noqa: BLE001 - prose is optional, the verdict is not
+        log.warning("news reasoning narration skipped: %s", exc)
+        return reasoning
+
+
 @router.post("/news", response_model=NewsAnalyzeResponse, summary="Verify claims in text against the evidence corpus")
 async def analyze_news(
     req: NewsAnalyzeRequest,
@@ -340,6 +408,12 @@ async def analyze_news(
 
     summary = req.text.strip().replace("\n", " ")
     summary = (summary[:280] + "…") if len(summary) > 280 else summary
+
+    # Analyst-facing "why". The verdict and score above are already final — this
+    # only narrates them in plain language, which is the one thing the LLM is
+    # allowed to do here. Best-effort: any failure leaves `reasoning` exactly as
+    # the deterministic path produced it.
+    reasoning = await _narrate(request, reasoning, verdict, score, score_source, verdicts)
 
     model_versions: dict[str, str] = {}
     for v in verdicts:
