@@ -79,6 +79,22 @@ async def _seed_demo_user() -> None:
     log.info("seeded demo user %s", settings.demo_email)
 
 
+async def _seed_evidence_corpus() -> None:
+    """
+    Give every tenant that has no evidence documents the demo corpus, so a fresh
+    deploy can actually exercise the retrieval pipeline instead of falling
+    through to the linguistic heuristic on every claim. Idempotent per tenant and
+    never overwrites an existing corpus — see core/seed_corpus.py.
+    """
+    from services.api.core.seed_corpus import seed_evidence_corpus
+
+    tenants = await db.fetch_unscoped("SELECT id FROM cerebro.tenants")
+    for row in tenants:
+        n = await seed_evidence_corpus(db, str(row["id"]))
+        if n:
+            log.info("seeded %d evidence documents for tenant %s", n, row["id"])
+
+
 def _load_models(app: FastAPI) -> None:
     """Load trained model artifacts named in the environment, if they exist."""
     import os
@@ -133,6 +149,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 await _seed_demo_user()
             except Exception as exc:  # noqa: BLE001
                 log.warning("demo user seed skipped (%s)", exc)
+        if settings.seed_evidence_corpus:
+            try:
+                await _seed_evidence_corpus()
+            except Exception as exc:  # noqa: BLE001
+                log.warning("evidence corpus seed skipped (%s)", exc)
     except Exception as exc:  # noqa: BLE001
         log.warning("database unavailable at startup (%s); metrics/stream disabled", exc)
 

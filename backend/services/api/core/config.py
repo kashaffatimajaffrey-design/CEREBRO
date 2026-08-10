@@ -94,6 +94,15 @@ class Settings:
         self.demo_email: str = os.getenv("DEMO_EMAIL", "demo@cerebro.app")
         self.demo_password: str = os.getenv("DEMO_PASSWORD", "cerebro-demo-2026")
 
+        # Seed the demo evidence corpus IF the tenant has no evidence documents.
+        # Without a corpus there is nothing to retrieve, so /analyze/news falls
+        # through to the linguistic heuristic and the RAG pipeline cannot be
+        # demonstrated at all. Defaults ON because it is idempotent and only ever
+        # fills an empty corpus — a tenant with real documents is never touched.
+        self.seed_evidence_corpus: bool = os.getenv(
+            "SEED_EVIDENCE_CORPUS", "true"
+        ).lower() in {"1", "true", "yes", "on"}
+
         self._validate()
 
     @property
