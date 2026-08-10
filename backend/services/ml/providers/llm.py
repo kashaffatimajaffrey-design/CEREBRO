@@ -423,6 +423,17 @@ class AnthropicProvider(LLMProvider):
         }
         if system:
             body["system"] = system
+        if json_schema:
+            # Anthropic has no `response_format`; the supported way to force a
+            # shape is a single tool the model MUST call. Without this,
+            # extract_claims() would get prose, fail json.loads, and silently
+            # fall back to a sentence split.
+            body["tools"] = [{
+                "name": "result",
+                "description": "Return the result in the required structure.",
+                "input_schema": json_schema,
+            }]
+            body["tool_choice"] = {"type": "tool", "name": "result"}
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -440,11 +451,14 @@ class AnthropicProvider(LLMProvider):
         except httpx.HTTPError as exc:
             raise LLMError(f"Anthropic request failed: {exc}") from exc
 
-        text = "".join(
-            block.get("text", "")
-            for block in data.get("content", [])
-            if block.get("type") == "text"
-        )
+        blocks = data.get("content", [])
+        if json_schema:
+            # Hand back the tool input as JSON text, so callers can json.loads it
+            # exactly as they do for the other providers.
+            tool_inputs = [b.get("input") for b in blocks if b.get("type") == "tool_use"]
+            text = json.dumps(tool_inputs[0]) if tool_inputs else ""
+        else:
+            text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
         usage = data.get("usage", {})
         return LLMResponse(
             text=text,
