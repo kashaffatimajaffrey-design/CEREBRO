@@ -4,18 +4,22 @@ import { ThreatMap } from './ThreatMap';
 import { motion, AnimatePresence } from 'motion/react';
 
 // Decrypted text scrambler component for that elite sci-fi feel
-const CyberText: React.FC<{ text: string; delay?: number; speed?: number }> = ({ text, delay = 0, speed = 30 }) => {
+const CyberText: React.FC<{ text: string; delay?: number; speed?: number }> = ({
+  text,
+  delay = 0,
+  speed = 30,
+}) => {
   const [displayText, setDisplayText] = useState('');
-  
+
   useEffect(() => {
     let isMounted = true;
     const chars = '01#$X%&*_+<>{}[]¥%@';
     let iterations = 0;
-    
+
     const timeout = setTimeout(() => {
       const interval = setInterval(() => {
         if (!isMounted) return;
-        
+
         setDisplayText(
           text
             .split('')
@@ -26,15 +30,15 @@ const CyberText: React.FC<{ text: string; delay?: number; speed?: number }> = ({
               if (char === ' ') return ' ';
               return chars[Math.floor(Math.random() * chars.length)];
             })
-            .join('')
+            .join(''),
         );
-        
+
         if (iterations >= text.length) {
           clearInterval(interval);
         }
         iterations += 1 / 2; // Settle speed
       }, speed);
-      
+
       return () => clearInterval(interval);
     }, delay);
 
@@ -47,14 +51,14 @@ const CyberText: React.FC<{ text: string; delay?: number; speed?: number }> = ({
   return <span>{displayText || text}</span>;
 };
 
-// Interface for Theme properties 
+// Interface for Theme properties
 interface CyberTheme {
   name: string;
   id: string;
   primary: string; // Tailwind class
-  accent: string;  // Tailwind text/border hover
-  glow: string;    // Shadow color
-  bgGlow: string;  // Background overlay gradient color
+  accent: string; // Tailwind text/border hover
+  glow: string; // Shadow color
+  bgGlow: string; // Background overlay gradient color
   textColor: string;
   canvasColor: string; // RGB values for canvas loop
 }
@@ -64,7 +68,8 @@ const CYBER_THEMES: CyberTheme[] = [
     name: 'Neon Cyan',
     id: 'cyan',
     primary: 'border-cyan-500 text-cyan-400 focus:ring-cyan-500 bg-cyan-950/20',
-    accent: 'text-cyan-400 hover:text-cyan-300 border-cyan-500/30 hover:border-cyan-400 bg-cyan-950/30',
+    accent:
+      'text-cyan-400 hover:text-cyan-300 border-cyan-500/30 hover:border-cyan-400 bg-cyan-950/30',
     glow: 'shadow-cyan-500/20',
     bgGlow: 'from-cyan-950/20 via-slate-950 to-slate-950',
     textColor: 'text-cyan-400',
@@ -74,7 +79,8 @@ const CYBER_THEMES: CyberTheme[] = [
     name: 'Matrix Code',
     id: 'green',
     primary: 'border-emerald-500 text-emerald-400 focus:ring-emerald-500 bg-emerald-950/20',
-    accent: 'text-emerald-400 hover:text-emerald-300 border-emerald-500/30 hover:border-emerald-400 bg-emerald-950/30',
+    accent:
+      'text-emerald-400 hover:text-emerald-300 border-emerald-500/30 hover:border-emerald-400 bg-emerald-950/30',
     glow: 'shadow-emerald-500/20',
     bgGlow: 'from-emerald-950/20 via-slate-950 to-slate-950',
     textColor: 'text-emerald-400',
@@ -84,7 +90,8 @@ const CYBER_THEMES: CyberTheme[] = [
     name: 'Quantum Violet',
     id: 'purple',
     primary: 'border-purple-500 text-purple-400 focus:ring-purple-500 bg-purple-950/20',
-    accent: 'text-purple-400 hover:text-purple-300 border-purple-500/30 hover:border-purple-400 bg-purple-950/30',
+    accent:
+      'text-purple-400 hover:text-purple-300 border-purple-500/30 hover:border-purple-400 bg-purple-950/30',
     glow: 'shadow-purple-500/20',
     bgGlow: 'from-purple-950/20 via-slate-950 to-slate-950',
     textColor: 'text-purple-400',
@@ -94,7 +101,8 @@ const CYBER_THEMES: CyberTheme[] = [
     name: 'Infected Crimson',
     id: 'red',
     primary: 'border-rose-500 text-rose-400 focus:ring-rose-500 bg-rose-950/20',
-    accent: 'text-rose-400 hover:text-rose-300 border-rose-500/30 hover:border-rose-400 bg-rose-950/30',
+    accent:
+      'text-rose-400 hover:text-rose-300 border-rose-500/30 hover:border-rose-400 bg-rose-950/30',
     glow: 'shadow-rose-500/20',
     bgGlow: 'from-rose-950/25 via-slate-950 to-slate-950',
     textColor: 'text-rose-400',
@@ -113,15 +121,15 @@ export const Auth: React.FC = () => {
 
   // Audio configuration
   const [audioEnabled, setAudioEnabled] = useState(false);
-  
+
   // Theme state (default is Neon Cyan)
   const [theme, setTheme] = useState<CyberTheme>(CYBER_THEMES[0]);
-  
+
   // Holographic Terminal Simulation
   const [isDecrypting, setIsDecrypting] = useState(false);
   const [decryptionProgress, setDecryptionProgress] = useState(0);
   const [decryptLogs, setDecryptLogs] = useState<string[]>([]);
-  
+
   // Parallax tracking
   const [mousePos, setMousePos] = useState({ x: 0, y: 0, rawX: 0, rawY: 0 });
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -164,7 +172,7 @@ export const Auth: React.FC = () => {
         osc.frequency.linearRampToValueAtTime(90, audioCtx.currentTime + 0.35);
         gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
-        
+
         // Parallel alert chime
         const extraOsc = audioCtx.createOscillator();
         const extraGain = audioCtx.createGain();
@@ -182,7 +190,7 @@ export const Auth: React.FC = () => {
         extraOsc.stop(audioCtx.currentTime + 0.35);
       } else if (type === 'success') {
         // Futuristic dual-oscillator musical sweep
-        const freqs = [392.00, 523.25, 659.25, 783.99, 1046.50]; // G4, C5, E5, G5, C6
+        const freqs = [392.0, 523.25, 659.25, 783.99, 1046.5]; // G4, C5, E5, G5, C6
         freqs.forEach((freq, idx) => {
           const oscNode = audioCtx.createOscillator();
           const gainNode = audioCtx.createGain();
@@ -191,13 +199,16 @@ export const Auth: React.FC = () => {
           oscNode.connect(gainNode);
           gainNode.connect(audioCtx.destination);
           gainNode.gain.setValueAtTime(0.025, audioCtx.currentTime + idx * 0.08);
-          gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + idx * 0.08 + 0.3);
+          gainNode.gain.exponentialRampToValueAtTime(
+            0.001,
+            audioCtx.currentTime + idx * 0.08 + 0.3,
+          );
           oscNode.start(audioCtx.currentTime + idx * 0.08);
           oscNode.stop(audioCtx.currentTime + idx * 0.08 + 0.3);
         });
       }
     } catch (e) {
-      console.warn("Virtual synthesizer blocked", e);
+      console.warn('Virtual synthesizer blocked', e);
     }
   };
 
@@ -226,7 +237,14 @@ export const Auth: React.FC = () => {
     // Matrix columns / particle configs
     const columns = Math.floor(width / 24);
     const drops: number[] = Array(columns).fill(0);
-    const particles: Array<{ x: number; y: number; speedX: number; speedY: number; radius: number; color: string }> = [];
+    const particles: Array<{
+      x: number;
+      y: number;
+      speedX: number;
+      speedY: number;
+      radius: number;
+      color: string;
+    }> = [];
 
     // Create custom constellation points for Cyan/Violet themes
     for (let i = 0; i < 45; i++) {
@@ -291,7 +309,6 @@ export const Auth: React.FC = () => {
           ctx.lineTo(width, y);
         }
         ctx.stroke();
-
       } else {
         // 3. Pure Green Cyber Matrix Rain
         ctx.font = '15px monospace';
@@ -343,7 +360,10 @@ export const Auth: React.FC = () => {
       { prg: 15, log: '🧬 ALLOCATING CACHE LINES & DIRECT MEMORY BUFFERS...' },
       { prg: 30, log: 'Connected to CEREBRO API' },
       { prg: 45, log: 'Verifying credentials...' },
-      { prg: 60, log: `🛡️ VERIFYING AUTH KEY FOR ANALYST: [${targetName.toUpperCase() || 'ANALYST_SEC_01'}]` },
+      {
+        prg: 60,
+        log: `🛡️ VERIFYING AUTH KEY FOR ANALYST: [${targetName.toUpperCase() || 'ANALYST_SEC_01'}]`,
+      },
       { prg: 78, log: '🛸 MOUNTING CEREBRO COGNITIVE NEURAL GRAPH...' },
       { prg: 90, log: '⚡ GEMINI MODELS SECURED AND PRE-HEATED FOR INFERENCE' },
       { prg: 97, log: '💾 DECRYPTING ANALYST DATABASES... COMPLETE' },
@@ -357,9 +377,9 @@ export const Auth: React.FC = () => {
       setDecryptionProgress(currentPrg);
       playSFX('keyboard');
 
-      const triggerMilestone = milestones.find(m => currentPrg >= m.prg);
+      const triggerMilestone = milestones.find((m) => currentPrg >= m.prg);
       if (triggerMilestone && currentPrg < 100) {
-        setDecryptLogs(prev => {
+        setDecryptLogs((prev) => {
           if (!prev.includes(triggerMilestone.log)) {
             return [...prev, triggerMilestone.log];
           }
@@ -369,7 +389,7 @@ export const Auth: React.FC = () => {
 
       if (currentPrg >= 100) {
         clearInterval(interval);
-        setDecryptLogs(prev => [...prev, '🚀 ACCESS CONFIRMED. REDIRECTING ENCRYPTED SHELL...']);
+        setDecryptLogs((prev) => [...prev, '🚀 ACCESS CONFIRMED. REDIRECTING ENCRYPTED SHELL...']);
         playSFX('success');
 
         // Execute asynchronous credential verification on completion
@@ -421,7 +441,9 @@ export const Auth: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen relative flex items-center justify-center bg-slate-950 p-6 overflow-hidden select-none bg-gradient-to-b ${theme.bgGlow} transition-colors duration-1000`}>
+    <div
+      className={`min-h-screen relative flex items-center justify-center bg-slate-950 p-6 overflow-hidden select-none bg-gradient-to-b ${theme.bgGlow} transition-colors duration-1000`}
+    >
       {/* 1. Live global threat map backdrop */}
       <div className="absolute inset-0 w-full h-full pointer-events-none z-0 brightness-[0.95]">
         <ThreatMap accentRGB={theme.canvasColor} />
@@ -429,10 +451,10 @@ export const Auth: React.FC = () => {
 
       {/* 2. Scanning CRT scanlines overhead filter */}
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_50%,rgba(0,0,0,0)_50%,rgba(0,0,0,0.45)_100%)] z-10" />
-      <div 
+      <div
         className="absolute inset-0 pointer-events-none z-10 opacity-[0.035]"
         style={{
-          backgroundImage: `repeating-linear-gradient(0deg, #000, #000 2px, transparent 2px, transparent 4px)`
+          backgroundImage: `repeating-linear-gradient(0deg, #000, #000 2px, transparent 2px, transparent 4px)`,
         }}
       />
 
@@ -446,7 +468,9 @@ export const Auth: React.FC = () => {
               if (next) {
                 // Initialize audio context safely by firing immediate success sweep
                 try {
-                  const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                  const audioCtx = new (
+                    window.AudioContext || (window as any).webkitAudioContext
+                  )();
                   const osc = audioCtx.createOscillator();
                   const gain = audioCtx.createGain();
                   osc.connect(gain);
@@ -462,7 +486,7 @@ export const Auth: React.FC = () => {
             });
           }}
           className={`px-4 py-2 rounded-lg border text-xs font-mono tracking-wider flex items-center gap-3 transition-all duration-300 ${
-            audioEnabled 
+            audioEnabled
               ? `${theme.textColor} border-current bg-white/5 shadow-lg ${theme.glow}`
               : 'text-slate-500 border-slate-800 bg-slate-950 hover:text-slate-300 hover:border-slate-700'
           }`}
@@ -482,7 +506,9 @@ export const Auth: React.FC = () => {
 
         {/* Floating coordinate display */}
         <div className="hidden lg:block font-mono text-[10px] text-slate-500 tracking-widest bg-slate-900/60 px-3 py-1.5 rounded-lg border border-slate-800/80">
-          GRID_COORD X: <span className={theme.textColor}>{(mousePos.x * 500).toFixed(0)}</span> Y: <span className={theme.textColor}>{(mousePos.y * 500).toFixed(0)}</span> | MATRIX STATE: SECURE
+          GRID_COORD X: <span className={theme.textColor}>{(mousePos.x * 500).toFixed(0)}</span> Y:{' '}
+          <span className={theme.textColor}>{(mousePos.y * 500).toFixed(0)}</span> | MATRIX STATE:
+          SECURE
         </div>
 
         {/* Dynamic theme switching palette */}
@@ -496,9 +522,13 @@ export const Auth: React.FC = () => {
               }}
               title={t.name}
               className={`w-6 h-6 rounded-lg transition-transform hover:scale-110 relative flex items-center justify-center ${
-                t.id === 'cyan' ? 'bg-cyan-500' :
-                t.id === 'green' ? 'bg-emerald-500' :
-                t.id === 'purple' ? 'bg-purple-500' : 'bg-rose-500'
+                t.id === 'cyan'
+                  ? 'bg-cyan-500'
+                  : t.id === 'green'
+                    ? 'bg-emerald-500'
+                    : t.id === 'purple'
+                      ? 'bg-purple-500'
+                      : 'bg-rose-500'
               }`}
             >
               {theme.id === t.id && (
@@ -510,23 +540,37 @@ export const Auth: React.FC = () => {
       </div>
 
       {/* 4. Left-hand Floating Cyber Monitor Widget (Parallax drifted) */}
-      <div 
+      <div
         className="hidden xl:flex absolute left-12 w-64 flex-col bg-slate-900/40 border border-slate-800/80 rounded-xl p-5 font-mono text-[11px] gap-4 pointer-events-none z-10 select-none shadow-2xl backdrop-blur-md transition-transform duration-300 ease-out"
         style={{
           transform: `perspective(1000px) translateY(${mousePos.y * 20}px) translateX(${mousePos.x * -15}px) rotateY(${mousePos.x * 4}deg)`,
         }}
       >
         <div className="flex items-center justify-between border-b border-slate-850 pb-2">
-          <span className={`text-[10px] tracking-widest ${theme.textColor} font-bold`}>[SEC_ANALYSIS_STREAM]</span>
+          <span className={`text-[10px] tracking-widest ${theme.textColor} font-bold`}>
+            [SEC_ANALYSIS_STREAM]
+          </span>
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
         </div>
         <div className="space-y-2 max-h-48 overflow-hidden text-slate-400">
-          <p className="truncate"><span className="text-slate-600">11:32:04</span> IP 192.168.0.1 blocked - SYN Flood</p>
-          <p className="truncate"><span className="text-slate-600">11:32:19</span> NLP Scan complete: Fake ratio 12%</p>
-          <p className="truncate"><span className="text-slate-600">11:33:01</span> Cognitive Node [GEMINI] ping 43ms</p>
-          <p className="truncate"><span className="text-slate-600">11:34:42</span> Security firewall sandbox: ONLINE</p>
-          <p className="truncate"><span className="text-slate-600">11:35:10</span> Thread 0x7FFA89B deployed</p>
-          <p className="truncate"><span className="text-slate-600">11:35:28</span> Cerebro memory footprint optimized</p>
+          <p className="truncate">
+            <span className="text-slate-600">11:32:04</span> IP 192.168.0.1 blocked - SYN Flood
+          </p>
+          <p className="truncate">
+            <span className="text-slate-600">11:32:19</span> NLP Scan complete: Fake ratio 12%
+          </p>
+          <p className="truncate">
+            <span className="text-slate-600">11:33:01</span> Cognitive Node [GEMINI] ping 43ms
+          </p>
+          <p className="truncate">
+            <span className="text-slate-600">11:34:42</span> Security firewall sandbox: ONLINE
+          </p>
+          <p className="truncate">
+            <span className="text-slate-600">11:35:10</span> Thread 0x7FFA89B deployed
+          </p>
+          <p className="truncate">
+            <span className="text-slate-600">11:35:28</span> Cerebro memory footprint optimized
+          </p>
         </div>
         <div className="border-t border-slate-850 pt-2 flex justify-between text-[10px] text-slate-500">
           <span>PORT: 3000/TCP</span>
@@ -535,25 +579,45 @@ export const Auth: React.FC = () => {
       </div>
 
       {/* 5. Right-hand Floating Space Locator Widget (Parallax drifted in opposite vector) */}
-      <div 
+      <div
         className="hidden xl:flex absolute right-12 w-64 flex-col bg-slate-900/40 border border-slate-800/80 rounded-xl p-5 font-mono text-[11px] items-center pointer-events-none z-10 select-none shadow-2xl backdrop-blur-md transition-transform duration-300 ease-out"
         style={{
           transform: `perspective(1000px) translateY(${mousePos.y * -20}px) translateX(${mousePos.x * 15}px) rotateY(${mousePos.x * -4}deg)`,
         }}
       >
-        <span className={`text-[10px] tracking-widest ${theme.textColor} font-bold mb-4`}>[TACTICAL_COMPASS]</span>
+        <span className={`text-[10px] tracking-widest ${theme.textColor} font-bold mb-4`}>
+          [TACTICAL_COMPASS]
+        </span>
         <div className="relative w-36 h-36 flex items-center justify-center">
           {/* Inner ring spinning clockwise */}
-          <div className="absolute w-32 h-32 rounded-full border border-dashed border-slate-800 animate-spin" style={{ animationDuration: '20s' }} />
+          <div
+            className="absolute w-32 h-32 rounded-full border border-dashed border-slate-800 animate-spin"
+            style={{ animationDuration: '20s' }}
+          />
           {/* Outer compass grid spinning counter-clockwise */}
-          <div className="absolute w-28 h-28 rounded-full border border-slate-700/60 animate-spin flex items-center justify-center" style={{ animationDuration: '10s', animationDirection: 'reverse' }}>
+          <div
+            className="absolute w-28 h-28 rounded-full border border-slate-700/60 animate-spin flex items-center justify-center"
+            style={{ animationDuration: '10s', animationDirection: 'reverse' }}
+          >
             <div className="w-1 h-28 bg-gradient-to-t from-transparent via-blue-500/20 to-transparent absolute" />
             <div className="w-28 h-1 bg-gradient-to-r from-transparent via-blue-500/20 to-transparent absolute" />
           </div>
           {/* Central Core Pulse */}
-          <div className={`w-8 h-8 rounded-full border border-current flex items-center justify-center bg-slate-950 ${theme.textColor} animate-pulse shadow-lg ${theme.glow}`}>
-            <svg className="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 009 11M9 11V9m0 2h.01M4 21h16M3 9a9 9 0 019-9 9 9 0 019 9v12H3V9z"/>
+          <div
+            className={`w-8 h-8 rounded-full border border-current flex items-center justify-center bg-slate-950 ${theme.textColor} animate-pulse shadow-lg ${theme.glow}`}
+          >
+            <svg
+              className="w-4 h-4 text-current"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 009 11M9 11V9m0 2h.01M4 21h16M3 9a9 9 0 019-9 9 9 0 019 9v12H3V9z"
+              />
             </svg>
           </div>
         </div>
@@ -607,7 +671,8 @@ export const Auth: React.FC = () => {
                 ))}
                 {decryptionProgress < 100 && (
                   <p className="animate-pulse text-cyan-400">
-                    <span className="text-slate-500">&gt;&gt;</span> LOADING QUANTUM CACHE BLOCKS... [{String.fromCharCode(33 + (decryptionProgress % 30))}]
+                    <span className="text-slate-500">&gt;&gt;</span> LOADING QUANTUM CACHE BLOCKS...
+                    [{String.fromCharCode(33 + (decryptionProgress % 30))}]
                   </p>
                 )}
               </div>
@@ -631,25 +696,53 @@ export const Auth: React.FC = () => {
             }}
           >
             {/* Corner Bracket decorations */}
-            <div className={`absolute top-4 left-4 font-mono text-[10px] font-bold ${theme.textColor} opacity-40`}>[SYS.I]</div>
-            <div className={`absolute top-4 right-4 font-mono text-[10px] font-bold ${theme.textColor} opacity-40`}>[CEREBRO_V1.02]</div>
-            <div className={`absolute bottom-4 left-4 font-mono text-[8px] text-slate-600`}>DECENTRAL_STATION</div>
-            <div className={`absolute bottom-4 right-4 font-mono text-[8px] text-slate-600`}>BYPASS_PORT_3000</div>
+            <div
+              className={`absolute top-4 left-4 font-mono text-[10px] font-bold ${theme.textColor} opacity-40`}
+            >
+              [SYS.I]
+            </div>
+            <div
+              className={`absolute top-4 right-4 font-mono text-[10px] font-bold ${theme.textColor} opacity-40`}
+            >
+              [CEREBRO_V1.02]
+            </div>
+            <div className={`absolute bottom-4 left-4 font-mono text-[8px] text-slate-600`}>
+              DECENTRAL_STATION
+            </div>
+            <div className={`absolute bottom-4 right-4 font-mono text-[8px] text-slate-600`}>
+              BYPASS_PORT_3000
+            </div>
 
             <div className="text-center mb-8 mt-2">
               {/* Dynamic circular glowing launcher icon */}
-              <div 
+              <div
                 className={`w-14 h-14 bg-slate-950 rounded-xl border border-dashed text-white flex items-center justify-center mx-auto mb-4 relative transition-all duration-500 ${
-                  theme.id === 'cyan' ? 'border-cyan-500/50 shadow-cyan-500/20 shadow-lg' :
-                  theme.id === 'green' ? 'border-emerald-500/50 shadow-emerald-500/20 shadow-lg' :
-                  theme.id === 'purple' ? 'border-purple-500/50 shadow-purple-500/20 shadow-lg' :
-                  'border-rose-500/50 shadow-rose-500/20 shadow-lg'
+                  theme.id === 'cyan'
+                    ? 'border-cyan-500/50 shadow-cyan-500/20 shadow-lg'
+                    : theme.id === 'green'
+                      ? 'border-emerald-500/50 shadow-emerald-500/20 shadow-lg'
+                      : theme.id === 'purple'
+                        ? 'border-purple-500/50 shadow-purple-500/20 shadow-lg'
+                        : 'border-rose-500/50 shadow-rose-500/20 shadow-lg'
                 }`}
               >
                 {/* Rotating SVG grid inside launcher */}
-                <div className="absolute inset-1 rounded-lg border border-slate-900 border-dashed animate-spin" style={{ animationDuration: '12s' }} />
-                <svg className="w-8 h-8 text-white relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                <div
+                  className="absolute inset-1 rounded-lg border border-slate-900 border-dashed animate-spin"
+                  style={{ animationDuration: '12s' }}
+                />
+                <svg
+                  className="w-8 h-8 text-white relative z-10"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
                 </svg>
               </div>
               <h1 className="text-3xl font-extrabold text-white tracking-widest font-mono">
@@ -709,7 +802,9 @@ export const Auth: React.FC = () => {
                     <span className="text-slate-600">[NULL]</span>
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-500 font-mono text-xs">&gt;&nbsp;</span>
+                    <span className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-500 font-mono text-xs">
+                      &gt;&nbsp;
+                    </span>
                     <input
                       type="text"
                       required
@@ -729,7 +824,9 @@ export const Auth: React.FC = () => {
                   <span className="text-slate-600">[SECURE_SHELL]</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-500 font-mono text-xs">&gt;&nbsp;</span>
+                  <span className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-500 font-mono text-xs">
+                    &gt;&nbsp;
+                  </span>
                   <input
                     type="email"
                     required
@@ -748,7 +845,9 @@ export const Auth: React.FC = () => {
                   <span className="text-slate-600">[ENCRYPTED]</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-500 font-mono text-xs">&gt;&nbsp;</span>
+                  <span className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-500 font-mono text-xs">
+                    &gt;&nbsp;
+                  </span>
                   <input
                     type="password"
                     required
@@ -769,26 +868,51 @@ export const Auth: React.FC = () => {
               >
                 {loading ? (
                   <div className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    <svg
+                      className="animate-spin h-4 w-4 text-current"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
                     </svg>
                     CONNECTING MATRIX...
                   </div>
                 ) : (
-                  <span>{isLogin ? '[ DECRYPT & SIGN IN ]' : '[ DECRYPT & REGISTER ACCOUNT ]'}</span>
+                  <span>
+                    {isLogin ? '[ DECRYPT & SIGN IN ]' : '[ DECRYPT & REGISTER ACCOUNT ]'}
+                  </span>
                 )}
               </button>
 
               <p className="text-[9px] font-mono text-slate-500 leading-relaxed text-center pt-1">
-                New here? Use <span className="text-cyan-400 font-bold underline cursor-pointer" onClick={() => setIsLogin(false)}>[ SIGN_UP ]</span> to create an account instantly.
+                New here? Use{' '}
+                <span
+                  className="text-cyan-400 font-bold underline cursor-pointer"
+                  onClick={() => setIsLogin(false)}
+                >
+                  [ SIGN_UP ]
+                </span>{' '}
+                to create an account instantly.
               </p>
             </form>
 
             {/* Bottom Toggle switch styled as terminal options */}
             <div className="mt-8 text-center border-t border-slate-800/80 pt-6">
               <p className="text-slate-500 font-mono text-[10px] tracking-widest uppercase mb-1">
-                {isLogin ? "IDENTITY Footprint unregistered?" : "Already verified within matrix?"}
+                {isLogin ? 'IDENTITY Footprint unregistered?' : 'Already verified within matrix?'}
               </p>
               <button
                 onClick={() => {

@@ -8,15 +8,27 @@
 const KEY = 'cerebro_token';
 
 export const getToken = (): string => {
-  try { return localStorage.getItem(KEY) || ''; } catch { return ''; }
+  try {
+    return localStorage.getItem(KEY) || '';
+  } catch {
+    return '';
+  }
 };
 
 export const setToken = (t: string): void => {
-  try { if (t) localStorage.setItem(KEY, t); } catch { /* storage unavailable */ }
+  try {
+    if (t) localStorage.setItem(KEY, t);
+  } catch {
+    /* storage unavailable */
+  }
 };
 
 export const clearToken = (): void => {
-  try { localStorage.removeItem(KEY); } catch { /* */ }
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    /* */
+  }
 };
 
 export const authHeaders = (): Record<string, string> => {

@@ -42,7 +42,7 @@ const App: React.FC = () => {
       gridColor: 'rgba(139, 92, 246, 0.04)',
       badge: 'bg-purple-500/10 text-purple-400 border border-purple-500/20',
       indicator: 'bg-purple-500 shadow-[0_0_10px_rgba(139,92,246,0.5)]',
-    }
+    },
   };
 
   const style = themeClasses[systemColor];
@@ -95,7 +95,7 @@ const App: React.FC = () => {
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           if (dist < 140) {
-            const opacity = (140 - dist) / 140 * 0.12;
+            const opacity = ((140 - dist) / 140) * 0.12;
             ctx.strokeStyle = `rgba(${colorRGB}, ${opacity})`;
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
@@ -152,7 +152,9 @@ const App: React.FC = () => {
           <div className="absolute inset-0 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
           <div className="absolute inset-2 border-4 border-emerald-500 border-b-transparent rounded-full animate-spin [animation-duration:1.5s] [animation-direction:reverse]"></div>
         </div>
-        <p className="text-xs font-mono text-slate-500 tracking-widest animate-pulse">[ LINKING NEURAL DECRYPTION LAYER ]</p>
+        <p className="text-xs font-mono text-slate-500 tracking-widest animate-pulse">
+          [ LINKING NEURAL DECRYPTION LAYER ]
+        </p>
       </div>
     );
   }
@@ -179,20 +181,24 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className={`flex min-h-screen bg-slate-950 text-slate-100 font-sans relative overflow-hidden transition-colors duration-1000 bg-gradient-to-b ${style.bgGlow}`}>
-      
+    <div
+      className={`flex min-h-screen bg-slate-950 text-slate-100 font-sans relative overflow-hidden transition-colors duration-1000 bg-gradient-to-b ${style.bgGlow}`}
+    >
       {/* 1. Behind-Grid Dynamic Scanning Matrix Grid with active canvas particles */}
-      <div 
-        className="absolute inset-0 pointer-events-none z-0 opacity-80 animate-grid-move" 
+      <div
+        className="absolute inset-0 pointer-events-none z-0 opacity-80 animate-grid-move"
         style={{
           backgroundImage: `
             linear-gradient(to right, ${style.gridColor} 1px, transparent 1px),
             linear-gradient(to bottom, ${style.gridColor} 1px, transparent 1px)
           `,
-          backgroundSize: '32px 32px'
+          backgroundSize: '32px 32px',
         }}
       />
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-0 brightness-[0.75]" />
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full pointer-events-none z-0 brightness-[0.75]"
+      />
 
       {/* 2. Global Laser Sweeping Scanline Overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-800/5 to-transparent pointer-events-none z-10 opacity-40">
@@ -200,31 +206,40 @@ const App: React.FC = () => {
       </div>
 
       {/* 3. Sidebar Menu */}
-      <Sidebar 
-        currentView={currentView} 
-        setCurrentView={setCurrentView} 
-        systemColor={systemColor} 
-        setSystemColor={setSystemColor} 
+      <Sidebar
+        currentView={currentView}
+        setCurrentView={setCurrentView}
+        systemColor={systemColor}
+        setSystemColor={setSystemColor}
       />
-      
+
       {/* 4. Main HUD Stage */}
       <main className="ml-64 flex-1 p-8 h-screen overflow-y-auto relative z-10 custom-scrollbar flex flex-col justify-between">
         <div>
           {/* Main Cyber Header */}
           <header className="mb-8 flex justify-between items-center bg-slate-900/40 border border-slate-900 p-4 rounded-xl backdrop-blur-md relative overflow-hidden">
-            
             {/* Ambient neon marker */}
-            <div className={`absolute top-0 left-4 w-24 h-[2px] ${
-              systemColor === 'green' ? 'bg-emerald-500' : systemColor === 'purple' ? 'bg-purple-500' : 'bg-blue-500'
-            }`} />
+            <div
+              className={`absolute top-0 left-4 w-24 h-[2px] ${
+                systemColor === 'green'
+                  ? 'bg-emerald-500'
+                  : systemColor === 'purple'
+                    ? 'bg-purple-500'
+                    : 'bg-blue-500'
+              }`}
+            />
 
             <div className="flex items-center gap-3">
               {/* Rotating radar pulse indicator */}
               <div className="relative w-3.5 h-3.5 flex items-center justify-center">
-                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-60 ${style.indicator}`}></span>
-                <span className={`relative inline-flex rounded-full h-2 w-2 ${style.indicator}`}></span>
+                <span
+                  className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-60 ${style.indicator}`}
+                ></span>
+                <span
+                  className={`relative inline-flex rounded-full h-2 w-2 ${style.indicator}`}
+                ></span>
               </div>
-              
+
               <div>
                 <h2 className="text-xl font-black text-white font-mono tracking-widest uppercase flex items-center gap-2">
                   {currentView === View.DASHBOARD && 'Dashboard Overview'}
@@ -234,9 +249,13 @@ const App: React.FC = () => {
                   {currentView === View.PROFILE && 'User Profile'}
                 </h2>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[10px] font-mono text-slate-500 tracking-wider">CEREBRO Threat Intelligence Terminal</span>
+                  <span className="text-[10px] font-mono text-slate-500 tracking-wider">
+                    CEREBRO Threat Intelligence Terminal
+                  </span>
                   <span className="text-slate-700 font-mono text-[10px]">•</span>
-                  <span className={`text-[9px] font-mono font-bold tracking-widest px-1.5 py-0.5 rounded ${style.badge}`}>
+                  <span
+                    className={`text-[9px] font-mono font-bold tracking-widest px-1.5 py-0.5 rounded ${style.badge}`}
+                  >
                     MODE: {systemColor.toUpperCase()}_ACTIVED
                   </span>
                 </div>
@@ -245,25 +264,25 @@ const App: React.FC = () => {
 
             {/* Analyst Credentials Indicator */}
             <div className="flex items-center gap-3.5 font-mono">
-               <div className="text-right hidden xl:block">
-                 <p className="text-xs font-bold text-white tracking-wider">{user.name}</p>
-                 <p className="text-[9px] text-slate-500 flex items-center gap-1 justify-end">
-                   <Terminal className="w-3 h-3 text-slate-600" />
-                   Security Analyst
-                 </p>
-               </div>
-               
-               <button 
-                  onClick={() => setCurrentView(View.PROFILE)}
-                  onMouseEnter={() => playCyberSFX('hover')}
-                  className={`w-10 h-10 rounded-full border bg-slate-950 hover:bg-slate-900 transition-all text-sm font-bold text-white flex items-center justify-center relative cursor-pointer group ${style.border}`}
-               >
-                 <div className="absolute -inset-1 rounded-full bg-slate-800/10 opacity-0 group-hover:opacity-100 transition-opacity blur-sm" />
-                 {user.name.charAt(0).toUpperCase()}
-               </button>
+              <div className="text-right hidden xl:block">
+                <p className="text-xs font-bold text-white tracking-wider">{user.name}</p>
+                <p className="text-[9px] text-slate-500 flex items-center gap-1 justify-end">
+                  <Terminal className="w-3 h-3 text-slate-600" />
+                  Security Analyst
+                </p>
+              </div>
+
+              <button
+                onClick={() => setCurrentView(View.PROFILE)}
+                onMouseEnter={() => playCyberSFX('hover')}
+                className={`w-10 h-10 rounded-full border bg-slate-950 hover:bg-slate-900 transition-all text-sm font-bold text-white flex items-center justify-center relative cursor-pointer group ${style.border}`}
+              >
+                <div className="absolute -inset-1 rounded-full bg-slate-800/10 opacity-0 group-hover:opacity-100 transition-opacity blur-sm" />
+                {user.name.charAt(0).toUpperCase()}
+              </button>
             </div>
           </header>
-          
+
           {/* Main Dynamic Viewport Mount */}
           <div className="relative">
             <AnimatePresence mode="wait">
@@ -286,7 +305,9 @@ const App: React.FC = () => {
             <span>[ SYSTEM: OPERATIONAL ]</span>
             <span>[ BANDWIDTH: 248.6 TB/S ]</span>
             <span>[ LATENCY: 12ms ]</span>
-            <span className="text-emerald-500 animate-pulse">[ SECURE ENCRYPTED NODE CONNECTION ]</span>
+            <span className="text-emerald-500 animate-pulse">
+              [ SECURE ENCRYPTED NODE CONNECTION ]
+            </span>
           </div>
           <div>
             <span>© CEREBRO TACTICAL INTEL AGENT CORES 2026</span>

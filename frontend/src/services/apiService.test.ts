@@ -14,9 +14,7 @@ describe('apiService', () => {
 
   it('surfaces a readable error on failure', async () => {
     server.use(
-      http.post('*/v1/analyze/news', () =>
-        HttpResponse.json({ detail: 'boom' }, { status: 500 })
-      )
+      http.post('*/v1/analyze/news', () => HttpResponse.json({ detail: 'boom' }, { status: 500 })),
     );
     await expect(analyzeNewsText('x')).rejects.toThrow(/boom/);
   });
@@ -28,10 +26,16 @@ describe('apiService', () => {
       http.post('*/v1/analyze/news', ({ request }) => {
         seen = request.headers.get('authorization');
         return HttpResponse.json({
-          credibilityScore: 50, verdict: 'Unverified', summary: '', reasoning: '',
-          sources: [], claims_checked: 0, model_versions: {}, score_source: 'heuristic',
+          credibilityScore: 50,
+          verdict: 'Unverified',
+          summary: '',
+          reasoning: '',
+          sources: [],
+          claims_checked: 0,
+          model_versions: {},
+          score_source: 'heuristic',
         });
-      })
+      }),
     );
     setToken('abc.def.ghi');
     await analyzeNewsText('anything');

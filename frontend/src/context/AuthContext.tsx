@@ -67,8 +67,12 @@ function friendlyError(status: number, detail?: string): string {
     return 'NETWORK BLOCKED: could not reach the CEREBRO API. Confirm the backend is deployed and VITE_API_BASE points to it.';
   }
   if (status === 401) return 'AUTHENTICATION FAILED: invalid email or security key.';
-  if (status === 409) return detail || 'An account with this email already exists — switch to [ SIGN_IN ].';
-  if (status === 422) return detail || 'Invalid input: check the email format and that the key is at least 8 characters.';
+  if (status === 409)
+    return detail || 'An account with this email already exists — switch to [ SIGN_IN ].';
+  if (status === 422)
+    return (
+      detail || 'Invalid input: check the email format and that the key is at least 8 characters.'
+    );
   return detail || 'Secure identity handshake disrupted. Please retry.';
 }
 
@@ -109,7 +113,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     let res: Response;
     try {
-      res = await apiFetch('/v1/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+      res = await apiFetch('/v1/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
     } catch {
       throw new Error(friendlyError(0));
     }
@@ -137,7 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithGoogle = async () => {
     throw new Error(
-      'Google sign-in is not enabled on this deployment. Use email and password, or the [ SIGN_UP ] tab to register instantly.'
+      'Google sign-in is not enabled on this deployment. Use email and password, or the [ SIGN_UP ] tab to register instantly.',
     );
   };
 
@@ -176,7 +183,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider
-      value={{ user, login, signup, loginWithGoogle, logout, addToHistory, removeFromHistory, updateUser, loading }}
+      value={{
+        user,
+        login,
+        signup,
+        loginWithGoogle,
+        logout,
+        addToHistory,
+        removeFromHistory,
+        updateUser,
+        loading,
+      }}
     >
       {children}
     </AuthContext.Provider>

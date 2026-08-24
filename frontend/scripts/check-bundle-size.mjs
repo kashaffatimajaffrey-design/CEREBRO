@@ -25,7 +25,11 @@ for (const f of files) {
   const buf = readFileSync(join(DIST, f));
   const gz = gzipSync(buf).length;
   totals[ext] += gz;
-  rows.push({ file: f, raw: `${(buf.length / 1024).toFixed(1)} KB`, gzip: `${(gz / 1024).toFixed(1)} KB` });
+  rows.push({
+    file: f,
+    raw: `${(buf.length / 1024).toFixed(1)} KB`,
+    gzip: `${(gz / 1024).toFixed(1)} KB`,
+  });
 }
 
 console.table(rows);
@@ -34,7 +38,7 @@ for (const ext of ['js', 'css']) {
   const ok = totals[ext] <= BUDGET[ext];
   console.log(
     `${ext.toUpperCase()} total: ${(totals[ext] / 1024).toFixed(1)} KB gzip ` +
-    `(budget ${(BUDGET[ext] / 1024).toFixed(0)} KB) — ${ok ? 'OK' : 'OVER BUDGET'}`
+      `(budget ${(BUDGET[ext] / 1024).toFixed(0)} KB) — ${ok ? 'OK' : 'OVER BUDGET'}`,
   );
   if (!ok) failed = true;
 }

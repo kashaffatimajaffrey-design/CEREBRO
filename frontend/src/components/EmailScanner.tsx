@@ -7,12 +7,27 @@ import { ShieldAlert, Mail, RefreshCw, AlertTriangle, CheckCircle2, FileText } f
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
-interface Indicator { code: string; severity: string; weight: number; detail: string; }
+interface Indicator {
+  code: string;
+  severity: string;
+  weight: number;
+  detail: string;
+}
 interface EmailResult {
-  from_display: string | null; from_addr: string | null; from_domain: string | null;
-  subject: string | null; spf: string | null; dkim: string | null; dmarc: string | null;
-  dkim_aligned: boolean | null; verdict: string; risk_score: number; score_source: string;
-  indicators: Indicator[]; urls: any[]; explanation: string | null;
+  from_display: string | null;
+  from_addr: string | null;
+  from_domain: string | null;
+  subject: string | null;
+  spf: string | null;
+  dkim: string | null;
+  dmarc: string | null;
+  dkim_aligned: boolean | null;
+  verdict: string;
+  risk_score: number;
+  score_source: string;
+  indicators: Indicator[];
+  urls: any[];
+  explanation: string | null;
 }
 
 const SAMPLE = `From: "PayPal Security" <alert@paypa1.com>
@@ -45,7 +60,9 @@ export const EmailScanner: React.FC = () => {
 
   const analyze = async () => {
     if (!raw.trim()) return;
-    setLoading(true); setResult(null); setError(null);
+    setLoading(true);
+    setResult(null);
+    setError(null);
     playCyberSFX('scan');
     try {
       const res = await fetch(`${API_BASE}/v1/analyze/email`, {
@@ -56,7 +73,11 @@ export const EmailScanner: React.FC = () => {
       });
       if (!res.ok) {
         let detail: string | undefined;
-        try { detail = (await res.json())?.detail; } catch { /* */ }
+        try {
+          detail = (await res.json())?.detail;
+        } catch {
+          /* */
+        }
         throw new Error(detail || `Analysis failed (${res.status})`);
       }
       const data: EmailResult = await res.json();
@@ -67,7 +88,12 @@ export const EmailScanner: React.FC = () => {
         date: new Date().toISOString(),
         type: 'CYBER',
         summary: `${data.verdict.toUpperCase()} — ${data.from_addr || 'unknown sender'}`,
-        result: data.verdict === 'phishing' ? 'Critical' : data.verdict === 'suspicious' ? 'High' : 'Safe',
+        result:
+          data.verdict === 'phishing'
+            ? 'Critical'
+            : data.verdict === 'suspicious'
+              ? 'High'
+              : 'Safe',
       });
     } catch (e: any) {
       playCyberSFX('alarm');
@@ -88,7 +114,9 @@ export const EmailScanner: React.FC = () => {
           <Mail className="w-6 h-6" />
         </div>
         <div>
-          <h2 className="text-lg font-bold text-white font-mono tracking-wider">[ EMAIL FORENSICS ]</h2>
+          <h2 className="text-lg font-bold text-white font-mono tracking-wider">
+            [ EMAIL FORENSICS ]
+          </h2>
           <p className="text-xs text-slate-500 font-mono">
             Paste a full raw email (headers + body). ~35 deterministic signals — SPF/DKIM/DMARC,
             lookalike domains, homographs, URL tricks — no AI guesswork.
@@ -106,7 +134,10 @@ export const EmailScanner: React.FC = () => {
         />
         <div className="mt-4 flex items-center justify-between gap-3">
           <button
-            onClick={() => { setRaw(SAMPLE); playCyberSFX('hover'); }}
+            onClick={() => {
+              setRaw(SAMPLE);
+              playCyberSFX('hover');
+            }}
             className="text-[10px] font-mono text-slate-500 hover:text-cyan-400 tracking-widest uppercase underline"
           >
             ↳ load sample phishing email
@@ -120,15 +151,25 @@ export const EmailScanner: React.FC = () => {
                 : 'bg-cyan-600/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-400 cursor-pointer'
             }`}
           >
-            {loading ? (<><RefreshCw className="h-3.5 w-3.5 animate-spin" /> ANALYZING…</>) : 'ANALYZE_MESSAGE'}
+            {loading ? (
+              <>
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" /> ANALYZING…
+              </>
+            ) : (
+              'ANALYZE_MESSAGE'
+            )}
           </button>
         </div>
       </div>
 
       <AnimatePresence>
         {error && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 font-mono text-xs flex items-center gap-2">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 font-mono text-xs flex items-center gap-2"
+          >
             <AlertTriangle className="w-4 h-4" /> {error}
           </motion.div>
         )}
@@ -137,29 +178,57 @@ export const EmailScanner: React.FC = () => {
       {/* result */}
       <AnimatePresence>
         {result && (
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="bg-slate-950/80 border border-slate-900 rounded-xl overflow-hidden shadow-2xl backdrop-blur-md">
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="bg-slate-950/80 border border-slate-900 rounded-xl overflow-hidden shadow-2xl backdrop-blur-md"
+          >
             <div className="p-5 border-b border-slate-900/60 bg-slate-950/40 flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                {pct >= 55 ? <ShieldAlert className="w-7 h-7 text-red-400" /> : <CheckCircle2 className="w-7 h-7 text-emerald-400" />}
+                {pct >= 55 ? (
+                  <ShieldAlert className="w-7 h-7 text-red-400" />
+                ) : (
+                  <CheckCircle2 className="w-7 h-7 text-emerald-400" />
+                )}
                 <div className="font-mono">
-                  <div className={`text-lg font-black uppercase tracking-widest ${riskColor}`}>{result.verdict}</div>
+                  <div className={`text-lg font-black uppercase tracking-widest ${riskColor}`}>
+                    {result.verdict}
+                  </div>
                   <div className="text-[10px] text-slate-500">
                     risk {pct}% · source: {result.score_source}
                   </div>
                 </div>
               </div>
               <div className="font-mono text-[10px] text-slate-400 space-y-0.5 text-right">
-                <div>SPF <span className="text-slate-200">{result.spf || 'n/a'}</span> · DKIM <span className="text-slate-200">{result.dkim || 'n/a'}</span> · DMARC <span className="text-slate-200">{result.dmarc || 'n/a'}</span></div>
-                <div>DKIM aligned: <span className={result.dkim_aligned === false ? 'text-red-400' : 'text-slate-200'}>{String(result.dkim_aligned)}</span></div>
+                <div>
+                  SPF <span className="text-slate-200">{result.spf || 'n/a'}</span> · DKIM{' '}
+                  <span className="text-slate-200">{result.dkim || 'n/a'}</span> · DMARC{' '}
+                  <span className="text-slate-200">{result.dmarc || 'n/a'}</span>
+                </div>
+                <div>
+                  DKIM aligned:{' '}
+                  <span
+                    className={result.dkim_aligned === false ? 'text-red-400' : 'text-slate-200'}
+                  >
+                    {String(result.dkim_aligned)}
+                  </span>
+                </div>
               </div>
             </div>
 
             <div className="p-6 space-y-5 font-mono">
               <div className="text-xs text-slate-400 space-y-1">
-                <div><span className="text-slate-600">FROM:</span> {result.from_display} &lt;{result.from_addr}&gt;</div>
-                <div><span className="text-slate-600">DOMAIN:</span> {result.from_domain}</div>
-                <div><span className="text-slate-600">SUBJECT:</span> {result.subject}</div>
+                <div>
+                  <span className="text-slate-600">FROM:</span> {result.from_display} &lt;
+                  {result.from_addr}&gt;
+                </div>
+                <div>
+                  <span className="text-slate-600">DOMAIN:</span> {result.from_domain}
+                </div>
+                <div>
+                  <span className="text-slate-600">SUBJECT:</span> {result.subject}
+                </div>
               </div>
 
               <div>
@@ -171,10 +240,15 @@ export const EmailScanner: React.FC = () => {
                 ) : (
                   <div className="space-y-2">
                     {result.indicators.map((ind, i) => (
-                      <div key={i} className={`p-3 rounded-lg border text-xs ${SEV[ind.severity] || SEV.info}`}>
+                      <div
+                        key={i}
+                        className={`p-3 rounded-lg border text-xs ${SEV[ind.severity] || SEV.info}`}
+                      >
                         <div className="flex items-center justify-between mb-0.5">
                           <span className="font-bold tracking-wider">{ind.code}</span>
-                          <span className="text-[9px] uppercase opacity-70">{ind.severity} · +{ind.weight.toFixed(2)}</span>
+                          <span className="text-[9px] uppercase opacity-70">
+                            {ind.severity} · +{ind.weight.toFixed(2)}
+                          </span>
                         </div>
                         <p className="opacity-90 leading-relaxed">{ind.detail}</p>
                       </div>

@@ -1,0 +1,52 @@
+name: Update visual baselines
+
+# Visual-regression baselines have to be rendered on the same platform that
+# compares them — Linux font rasterisation differs from Windows and macOS, so a
+# baseline captured on a laptop reports antialiasing as a regression on every CI
+# run. This job regenerates them on the CI runner itself and commits the result.
+#
+# Run it from the Actions tab (Run workflow) after any deliberate UI change that
+# the visual check flags. It is manual on purpose: automatically refreshing
+# baselines would mean the check could never fail.
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to update baselines on
+        required: false
+        default: main
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run: { working-directory: frontend }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+      - uses: actions/setup-node@v4
+        with:
+          { node-version: '22', cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Regenerate screenshots
+        run: npx playwright test e2e/visual.spec.ts --update-snapshots
+
+      - name: Commit baselines
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A frontend/e2e
+          if git diff --cached --quiet; then
+            echo "Baselines already match the current UI — nothing to commit."
+            exit 0
+          fi
+          git commit -m "chore(visual): refresh Playwright baselines on the CI runner"
+          git push origin HEAD:${{ inputs.branch }}

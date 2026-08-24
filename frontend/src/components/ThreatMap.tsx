@@ -16,26 +16,68 @@ interface City {
 
 // ~35 major cities, spread across the continents.
 const CITIES: City[] = [
-  { lon: -74.0, lat: 40.7 }, { lon: -118.2, lat: 34.0 }, { lon: -87.6, lat: 41.9 },
-  { lon: -79.4, lat: 43.7 }, { lon: -99.1, lat: 19.4 }, { lon: -74.1, lat: 4.7 },
-  { lon: -46.6, lat: -23.5 }, { lon: -58.4, lat: -34.6 }, { lon: -70.7, lat: -33.4 },
-  { lon: -0.1, lat: 51.5 }, { lon: 2.3, lat: 48.9 }, { lon: -3.7, lat: 40.4 },
-  { lon: 13.4, lat: 52.5 }, { lon: 37.6, lat: 55.75 }, { lon: 28.9, lat: 41.0 },
-  { lon: 31.2, lat: 30.0 }, { lon: 3.4, lat: 6.5 }, { lon: 28.0, lat: -26.2 },
-  { lon: 36.8, lat: -1.3 }, { lon: 55.3, lat: 25.2 }, { lon: 46.7, lat: 24.6 },
-  { lon: 51.4, lat: 35.7 }, { lon: 72.8, lat: 19.0 }, { lon: 77.2, lat: 28.6 },
-  { lon: 77.6, lat: 13.0 }, { lon: 103.8, lat: 1.35 }, { lon: 100.5, lat: 13.75 },
-  { lon: 106.8, lat: -6.2 }, { lon: 114.2, lat: 22.3 }, { lon: 121.5, lat: 31.2 },
-  { lon: 116.4, lat: 39.9 }, { lon: 127.0, lat: 37.5 }, { lon: 139.7, lat: 35.7 },
-  { lon: 151.2, lat: -33.9 }, { lon: 115.9, lat: -31.95 },
+  { lon: -74.0, lat: 40.7 },
+  { lon: -118.2, lat: 34.0 },
+  { lon: -87.6, lat: 41.9 },
+  { lon: -79.4, lat: 43.7 },
+  { lon: -99.1, lat: 19.4 },
+  { lon: -74.1, lat: 4.7 },
+  { lon: -46.6, lat: -23.5 },
+  { lon: -58.4, lat: -34.6 },
+  { lon: -70.7, lat: -33.4 },
+  { lon: -0.1, lat: 51.5 },
+  { lon: 2.3, lat: 48.9 },
+  { lon: -3.7, lat: 40.4 },
+  { lon: 13.4, lat: 52.5 },
+  { lon: 37.6, lat: 55.75 },
+  { lon: 28.9, lat: 41.0 },
+  { lon: 31.2, lat: 30.0 },
+  { lon: 3.4, lat: 6.5 },
+  { lon: 28.0, lat: -26.2 },
+  { lon: 36.8, lat: -1.3 },
+  { lon: 55.3, lat: 25.2 },
+  { lon: 46.7, lat: 24.6 },
+  { lon: 51.4, lat: 35.7 },
+  { lon: 72.8, lat: 19.0 },
+  { lon: 77.2, lat: 28.6 },
+  { lon: 77.6, lat: 13.0 },
+  { lon: 103.8, lat: 1.35 },
+  { lon: 100.5, lat: 13.75 },
+  { lon: 106.8, lat: -6.2 },
+  { lon: 114.2, lat: 22.3 },
+  { lon: 121.5, lat: 31.2 },
+  { lon: 116.4, lat: 39.9 },
+  { lon: 127.0, lat: 37.5 },
+  { lon: 139.7, lat: 35.7 },
+  { lon: 151.2, lat: -33.9 },
+  { lon: 115.9, lat: -31.95 },
 ];
 
 interface Attack {
-  sx: number; sy: number; ex: number; ey: number; cx: number; cy: number;
-  t: number; speed: number; threat: boolean; done: boolean;
+  sx: number;
+  sy: number;
+  ex: number;
+  ey: number;
+  cx: number;
+  cy: number;
+  t: number;
+  speed: number;
+  threat: boolean;
+  done: boolean;
 }
-interface Ripple { x: number; y: number; r: number; max: number; hue: string; }
-interface Dust { x: number; y: number; r: number; a: number; }
+interface Ripple {
+  x: number;
+  y: number;
+  r: number;
+  max: number;
+  hue: string;
+}
+interface Dust {
+  x: number;
+  y: number;
+  r: number;
+  a: number;
+}
 
 interface Props {
   accentRGB?: string; // e.g. "6, 182, 212"
@@ -51,7 +93,8 @@ export const ThreatMap: React.FC<Props> = ({ accentRGB = '6, 182, 212' }) => {
     if (!ctx) return;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    let W = 0, H = 0;
+    let W = 0,
+      H = 0;
     let nodes: { x: number; y: number; phase: number }[] = [];
     let dust: Dust[] = [];
     let attacks: Attack[] = [];
@@ -99,14 +142,21 @@ export const ThreatMap: React.FC<Props> = ({ accentRGB = '6, 182, 212' }) => {
       let guard = 0;
       while (b === a && guard++ < 5) b = nodes[Math.floor(Math.random() * nodes.length)];
       if (b === a) return;
-      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      const mx = (a.x + b.x) / 2,
+        my = (a.y + b.y) / 2;
       const dist = Math.hypot(b.x - a.x, b.y - a.y);
       const lift = Math.min(dist * 0.4, H * 0.4);
       attacks.push({
-        sx: a.x, sy: a.y, ex: b.x, ey: b.y,
-        cx: mx, cy: my - lift,
-        t: 0, speed: 0.006 + Math.random() * 0.008,
-        threat: Math.random() < 0.62, done: false,
+        sx: a.x,
+        sy: a.y,
+        ex: b.x,
+        ey: b.y,
+        cx: mx,
+        cy: my - lift,
+        t: 0,
+        speed: 0.006 + Math.random() * 0.008,
+        threat: Math.random() < 0.62,
+        done: false,
       });
       if (attacks.length > 30) attacks.shift();
     }
@@ -128,11 +178,17 @@ export const ThreatMap: React.FC<Props> = ({ accentRGB = '6, 182, 212' }) => {
       ctx.lineWidth = 1;
       for (let lon = -180; lon <= 180; lon += 30) {
         const x = ((lon + 180) / 360) * W;
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, H);
+        ctx.stroke();
       }
       for (let lat = -60; lat <= 60; lat += 30) {
         const y = ((90 - lat) / 180) * H;
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y);
+        ctx.stroke();
       }
 
       // landmass dust
@@ -160,7 +216,10 @@ export const ThreatMap: React.FC<Props> = ({ accentRGB = '6, 182, 212' }) => {
 
       // spawn + draw attacks
       acc += dt;
-      if (acc > 340) { acc = 0; spawn(); }
+      if (acc > 340) {
+        acc = 0;
+        spawn();
+      }
       for (const at of attacks) {
         at.t += at.speed * step;
         const tt = Math.min(at.t, 1);
@@ -171,7 +230,8 @@ export const ThreatMap: React.FC<Props> = ({ accentRGB = '6, 182, 212' }) => {
           const u = (i / seg) * tt;
           const x = bez(at.sx, at.cx, at.ex, u);
           const y = bez(at.sy, at.cy, at.ey, u);
-          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
         }
         ctx.strokeStyle = `rgba(${col}, 0.5)`;
         ctx.lineWidth = 1.2;
@@ -214,5 +274,11 @@ export const ThreatMap: React.FC<Props> = ({ accentRGB = '6, 182, 212' }) => {
     };
   }, [accentRGB]);
 
-  return <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" style={{ width: '100%', height: '100%' }} />;
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 h-full w-full"
+      style={{ width: '100%', height: '100%' }}
+    />
+  );
 };

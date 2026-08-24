@@ -3,7 +3,7 @@ export enum View {
   NEWS_SCANNER = 'NEWS_SCANNER',
   CYBER_MONITOR = 'CYBER_MONITOR',
   EMAIL_SCANNER = 'EMAIL_SCANNER',
-  PROFILE = 'PROFILE'
+  PROFILE = 'PROFILE',
 }
 
 export enum ThreatLevel {
@@ -11,7 +11,7 @@ export enum ThreatLevel {
   LOW = 'Low',
   MEDIUM = 'Medium',
   HIGH = 'High',
-  CRITICAL = 'Critical'
+  CRITICAL = 'Critical',
 }
 
 export interface NewsAnalysisResult {

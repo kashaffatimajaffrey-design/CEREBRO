@@ -27,10 +27,10 @@ export default defineConfig(({ mode }) => {
         '/v1': {
           target: proxyTarget,
           changeOrigin: true,
-          ws: true,             // required for the /v1/stream WebSocket
+          ws: true, // required for the /v1/stream WebSocket
         },
         '/health': { target: proxyTarget, changeOrigin: true },
-        '/ready':  { target: proxyTarget, changeOrigin: true },
+        '/ready': { target: proxyTarget, changeOrigin: true },
       },
     },
     build: {
