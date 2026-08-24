@@ -170,9 +170,43 @@ python tests/test_queries.py     #  7 — named-query loader
 python tests/test_anomaly.py     #  9 — fits on benign only (needs scikit-learn)
 ```
 
-**67 backend tests**, including 23 adversarial security tests. Frontend
-type-checks clean (`npm run typecheck`). CI (`.github/workflows/ci.yml`) runs it
-all against Postgres 16 + pgvector.
+**67 backend tests**, including 23 adversarial security tests, run against
+Postgres 16 + pgvector in CI.
+
+### The frontend gate
+
+Eight layered checks, each answering a different question, all in
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+
+| Check | Command | Catches |
+|---|---|---|
+| Type safety | `npm run typecheck` | contract breaks at the boundaries |
+| Format | `npm run format:check` | Prettier drift |
+| Lint + accessibility | `npm run lint` | real bugs, and `jsx-a11y` violations |
+| Unit + component | `npm test` | Vitest + Testing Library |
+| Contract | (same run) | MSW mocks the API, so a changed shape fails here |
+| Build | `npm run build:client` | anything the type-checker cannot see |
+| Bundle-size budget | `npm run size` | silent weight regressions — currently 473 KB gzip of a 750 KB budget |
+| End-to-end + visual | `npm run test:e2e` | Playwright on desktop Chrome and an emulated iPhone, screenshots compared against committed baselines |
+
+Visual baselines are platform-specific, so they are generated on the CI runner
+by [`update-snapshots.yml`](.github/workflows/update-snapshots.yml) rather than
+on a laptop — a baseline captured on Windows reports Linux font rasterisation as
+a regression on every run. That workflow is manual on purpose: refreshing
+baselines automatically would mean the check could never fail.
+
+### Bugs that became checks
+
+The point of the gate is that nothing gets fixed twice:
+
+- **iOS/WhatsApp in-app browser sign-in** failed on a session-storage
+  assumption. Now covered by the Playwright run on an emulated iPhone.
+- **An API error shape change** broke a scanner silently. Now covered by an MSW
+  contract test.
+- **A named SQL query was renamed** without updating its caller. Now covered by
+  a build-time loader test.
+- **Layout could break with everything else green.** Now covered by the visual
+  regression baselines.
 
 ---
 
