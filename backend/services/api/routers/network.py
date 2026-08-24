@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from services.api.core.db import emit_detection
@@ -79,21 +79,21 @@ def _heuristic_scan(logs: list["NetworkLogIn"]) -> dict[str, Any]:
             "recommendedAction": "No action required.", "score_source": "heuristic",
         }
 
-    src_counts = Counter(l.sourceIP for l in logs if l.sourceIP)
+    src_counts = Counter(f.sourceIP for f in logs if f.sourceIP)
     flagged: list[tuple[str, str]] = []
-    for l in logs:
-        flags = (l.flags or "").upper()
+    for flow in logs:
+        flags = (flow.flags or "").upper()
         reason = None
         if "SYN_FLOOD" in flags or flags.count("SYN") >= 3:
             reason = "SYN flood pattern"
-        elif (l.packetSize or 0) > 8000:
-            reason = f"oversized packet ({l.packetSize} bytes)"
-        elif (l.protocol or "").upper() == "ICMP" and src_counts.get(l.sourceIP, 0) >= 4:
+        elif (flow.packetSize or 0) > 8000:
+            reason = f"oversized packet ({flow.packetSize} bytes)"
+        elif (flow.protocol or "").upper() == "ICMP" and src_counts.get(flow.sourceIP, 0) >= 4:
             reason = "ICMP flood"
-        elif l.sourceIP and src_counts.get(l.sourceIP, 0) >= 6:
+        elif flow.sourceIP and src_counts.get(flow.sourceIP, 0) >= 6:
             reason = "high-volume source — possible port scan"
         if reason:
-            flagged.append((l.id, reason))
+            flagged.append((flow.id, reason))
 
     n = len(flagged)
     has_flood = any("flood" in r for _, r in flagged)

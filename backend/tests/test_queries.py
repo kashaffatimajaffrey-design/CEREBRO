@@ -12,7 +12,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from services.api.core import queries  # noqa: E402
 from services.api.core.queries import _parse, get_query, query_names  # noqa: E402
 
 # Every query name the API routers load. If a router asks for a name that

@@ -32,7 +32,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from email.utils import parseaddr, getaddresses, parsedate_to_datetime
-from typing import Any, Iterable
+from typing import Any
 from urllib.parse import urlparse, unquote
 
 # --------------------------------------------------------------------------

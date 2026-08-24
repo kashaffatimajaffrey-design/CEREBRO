@@ -28,9 +28,8 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field, field_validator
 
 from services.api.core.config import settings
@@ -185,26 +184,33 @@ def _heuristic_credibility(text: str) -> tuple[int, str, str]:
 
     sens = sum(1 for w in _SENSATIONAL if w in t)
     if sens:
-        score -= min(30, sens * 10); notes.append(f"{sens} sensational/clickbait phrase(s)")
+        score -= min(30, sens * 10)
+        notes.append(f"{sens} sensational/clickbait phrase(s)")
     consp = sum(1 for w in _CONSPIRACY if w in t)
     if consp:
-        score -= min(38, consp * 19); notes.append(f"{consp} known-conspiracy marker(s)")
+        score -= min(38, consp * 19)
+        notes.append(f"{consp} known-conspiracy marker(s)")
     if any(w in t for w in _DEATH_RUMOR):
-        score -= 16; notes.append("unverified death claim (a common misinformation pattern)")
+        score -= 16
+        notes.append("unverified death claim (a common misinformation pattern)")
     cred = sum(1 for w in _CREDIBLE_SIGNALS if w in t)
     if cred:
-        score += min(24, cred * 8); notes.append(f"{cred} attribution/sourcing signal(s)")
+        score += min(24, cred * 8)
+        notes.append(f"{cred} attribution/sourcing signal(s)")
 
     exclam = text.count("!")
     if exclam >= 2:
-        score -= min(15, exclam * 4); notes.append("excessive exclamation")
+        score -= min(15, exclam * 4)
+        notes.append("excessive exclamation")
     letters = [c for c in text if c.isalpha()]
     if letters and len(letters) > 20:
         caps_ratio = sum(1 for c in letters if c.isupper()) / len(letters)
         if caps_ratio > 0.3:
-            score -= 12; notes.append("heavy capitalization")
+            score -= 12
+            notes.append("heavy capitalization")
     if re.search(r"\b(19|20)\d{2}\b", text) or re.search(r"\b\d+(\.\d+)?%\b", text):
-        score += 6; notes.append("contains specific figures/dates")
+        score += 6
+        notes.append("contains specific figures/dates")
 
     score = max(5, min(90, score))
     if score < 40:

@@ -16,10 +16,7 @@ from services.api.core.security import (  # noqa: E402
     TokenVault, generate_api_key, API_KEY_PREFIX,
     _b64url_encode, _b64url_decode,
 )
-import base64  # noqa: E402
 import json  # noqa: E402
-import hmac  # noqa: E402
-import hashlib  # noqa: E402
 
 SECRET = "test-secret-key-at-least-32-characters-long!!"
 

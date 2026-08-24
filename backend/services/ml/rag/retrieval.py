@@ -44,7 +44,7 @@ import math
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Protocol, Sequence
+from typing import Any, Protocol, Sequence
 
 import numpy as np
 

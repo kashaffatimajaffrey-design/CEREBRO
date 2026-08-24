@@ -25,10 +25,9 @@ import time
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator
 
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
 
 from services.api.core.config import settings
 from services.api.core.db import db
@@ -97,7 +96,6 @@ async def _seed_evidence_corpus() -> None:
 
 def _load_models(app: FastAPI) -> None:
     """Load trained model artifacts named in the environment, if they exist."""
-    import os
 
     clf_path = settings.email_classifier_path
     if clf_path and os.path.exists(clf_path):
