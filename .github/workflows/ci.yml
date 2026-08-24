@@ -48,10 +48,39 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
+    defaults:
+      run: {working-directory: frontend}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: {node-version: '22', cache: npm, cache-dependency-path: frontend/package-lock.json}
-      - run: cd frontend && npm ci
-      - run: cd frontend && npm run typecheck
-      - run: cd frontend && npm run build:client
+      - run: npm ci
+
+      # Layered quality gate — each check fails fast and points at what to fix.
+      - name: Type safety
+        run: npm run typecheck
+      - name: Lint + accessibility (eslint + jsx-a11y)
+        run: npm run lint
+      - name: Unit & component tests (Vitest + Testing Library + MSW)
+        run: npm test
+      - name: Build
+        run: npm run build:client
+      - name: Bundle-size budget
+        run: npm run size
+
+  e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run: {working-directory: frontend}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm, cache-dependency-path: frontend/package-lock.json}
+      - run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: End-to-end smoke tests (Playwright, desktop + mobile)
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with: {name: playwright-report, path: frontend/playwright-report, retention-days: 7}
